@@ -24,6 +24,25 @@ export type KeyUsageFile = {
   keys: string[];
 };
 
+export type GitKeyLocaleChange = {
+  locale: string;
+  kind: "added" | "removed" | "changed";
+  before: string;
+  after: string;
+};
+
+export type GitKeyDiff = {
+  key: string;
+  changes: GitKeyLocaleChange[];
+};
+
+export type HardcodedTextIssue = {
+  file: string;
+  line: number;
+  kind: "jsx_text" | "jsx_attribute";
+  text: string;
+};
+
 export type NamespaceSummary = {
   id: string;
   label: string;

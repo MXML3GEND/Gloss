@@ -4,7 +4,9 @@ import { fileURLToPath } from "node:url";
 import express from "express";
 import cors from "cors";
 import type { GlossConfig, TranslationsByLocale } from "@gloss/shared";
+import { runGlossCheck } from "./check.js";
 import { readAllTranslations, writeAllTranslations } from "./fs.js";
+import { buildGitKeyDiff } from "./gitDiff.js";
 import { buildKeyUsageMap } from "./usage.js";
 import { inferUsageRoot, scanUsage } from "./usageScanner.js";
 import { renameKeyUsage } from "./renameKeyUsage.js";
@@ -49,6 +51,34 @@ export function createServerApp(cfg: GlossConfig) {
     res.json(usage);
   });
 
+  app.get("/api/check", async (req, res) => {
+    const result = await runGlossCheck(cfg);
+    const summaryValue =
+      typeof req.query.summary === "string" ? req.query.summary : "";
+    const summaryOnly = summaryValue === "1" || summaryValue === "true";
+
+    if (summaryOnly) {
+      res.json({
+        ok: result.ok,
+        generatedAt: result.generatedAt,
+        summary: result.summary,
+        hardcodedTexts: result.hardcodedTexts.slice(0, 20),
+      });
+      return;
+    }
+
+    res.json(result);
+  });
+
+  app.get("/api/git-diff", async (req, res) => {
+    const base =
+      typeof req.query.base === "string" && req.query.base.trim()
+        ? req.query.base.trim()
+        : "origin/main";
+    const diff = await buildGitKeyDiff(cfg, base);
+    res.json(diff);
+  });
+
   app.post("/api/translations", async (req, res) => {
     const data = req.body as TranslationsByLocale;
     await writeAllTranslations(cfg, data);
@@ -69,7 +99,7 @@ export function createServerApp(cfg: GlossConfig) {
     }
 
     try {
-      const result = await renameKeyUsage(oldKey, newKey);
+      const result = await renameKeyUsage(oldKey, newKey, undefined, cfg.scan?.mode);
       res.json({ ok: true, ...result });
     } catch (error) {
       res.status(500).json({

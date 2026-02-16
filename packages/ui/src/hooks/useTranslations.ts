@@ -6,6 +6,8 @@ import { flattenObject, unflattenObject } from "../utils/translationTree";
 import type {
   DuplicateValueGroup,
   FlatTranslationsByLocale,
+  GitKeyDiff,
+  HardcodedTextIssue,
   KeyUsageFile,
   KeyUsagePage,
   TableFilterRule,
@@ -73,6 +75,47 @@ const parseUsageEntries = (entries: unknown): KeyUsageFile[] => {
     })
     .filter((entry) => entry.id && entry.file)
     .sort((left, right) => left.file.localeCompare(right.file));
+};
+
+const parseGitDiffEntries = (entries: unknown): GitKeyDiff[] => {
+  if (!Array.isArray(entries)) {
+    return [];
+  }
+
+  return entries
+    .map((entry) => {
+      const value = entry as Partial<GitKeyDiff>;
+      const key = typeof value.key === "string" ? value.key : "";
+      const changes = Array.isArray(value.changes)
+        ? value.changes
+            .map((change) => {
+              const changeValue = change as Partial<GitKeyDiff["changes"][number]>;
+              const locale =
+                typeof changeValue.locale === "string" ? changeValue.locale : "";
+              const kind = changeValue.kind;
+              const before =
+                typeof changeValue.before === "string" ? changeValue.before : "";
+              const after =
+                typeof changeValue.after === "string" ? changeValue.after : "";
+
+              if (!locale) {
+                return null;
+              }
+              if (kind !== "added" && kind !== "removed" && kind !== "changed") {
+                return null;
+              }
+
+              return { locale, kind, before, after };
+            })
+            .filter(
+              (change): change is GitKeyDiff["changes"][number] => change !== null,
+            )
+        : [];
+
+      return { key, changes };
+    })
+    .filter((entry) => entry.key.length > 0 && entry.changes.length > 0)
+    .sort((left, right) => left.key.localeCompare(right.key));
 };
 
 const buildDefaultCommonKey = (value: string): string => {
@@ -152,9 +195,20 @@ export function useTranslations({ t, dialog }: UseTranslationsParams) {
   const [usage, setUsage] = useState<UsageMap>({});
   const [usagePages, setUsagePages] = useState<KeyUsagePage[]>([]);
   const [fileUsages, setFileUsages] = useState<KeyUsageFile[]>([]);
+  const [gitBaseRef, setGitBaseRef] = useState("origin/main");
+  const [gitDiffAvailable, setGitDiffAvailable] = useState(true);
+  const [gitDiffError, setGitDiffError] = useState<string | null>(null);
+  const [gitDiffByKey, setGitDiffByKey] = useState<Record<string, GitKeyDiff>>({});
+  const [showOnlyGitChanged, setShowOnlyGitChanged] = useState(false);
+  const [hardcodedTextCount, setHardcodedTextCount] = useState(0);
+  const [hardcodedTextPreview, setHardcodedTextPreview] = useState<string[]>([]);
+  const [hardcodedTextIssues, setHardcodedTextIssues] = useState<
+    HardcodedTextIssue[]
+  >([]);
   const [selectedPage, setSelectedPage] = useState("all");
   const [selectedFile, setSelectedFile] = useState("all");
   const [expandedKey, setExpandedKey] = useState<string | null>(null);
+  const [highlightedKey, setHighlightedKey] = useState<string | null>(null);
   const translateRef = useRef<TranslateFn>(t);
 
   useEffect(() => {
@@ -239,6 +293,105 @@ export function useTranslations({ t, dialog }: UseTranslationsParams) {
     }
   }, []);
 
+  const loadGitDiff = useCallback(async () => {
+    try {
+      const query = new URLSearchParams({ base: gitBaseRef }).toString();
+      const response = await fetch(`/api/git-diff?${query}`);
+      if (!response.ok) {
+        setGitDiffAvailable(false);
+        setGitDiffError(t("gitDiffUnavailable"));
+        setGitDiffByKey({});
+        return;
+      }
+
+      const payload = (await response.json()) as {
+        available?: unknown;
+        error?: unknown;
+        keys?: unknown;
+      };
+      const available = payload.available !== false;
+
+      if (!available) {
+        setGitDiffAvailable(false);
+        setGitDiffError(
+          typeof payload.error === "string" && payload.error.trim()
+            ? payload.error
+            : t("gitDiffUnavailable"),
+        );
+        setGitDiffByKey({});
+        return;
+      }
+
+      const entries = parseGitDiffEntries(payload.keys);
+      const nextByKey: Record<string, GitKeyDiff> = {};
+      for (const entry of entries) {
+        nextByKey[entry.key] = entry;
+      }
+
+      setGitDiffAvailable(true);
+      setGitDiffError(null);
+      setGitDiffByKey(nextByKey);
+    } catch {
+      setGitDiffAvailable(false);
+      setGitDiffError(t("gitDiffUnavailable"));
+      setGitDiffByKey({});
+    }
+  }, [gitBaseRef, t]);
+
+  const loadCheckSummary = useCallback(async () => {
+    try {
+      const response = await fetch("/api/check?summary=1");
+      if (!response.ok) {
+        return;
+      }
+
+      const payload = (await response.json()) as {
+        summary?: { hardcodedTexts?: unknown };
+        hardcodedTexts?: unknown;
+      };
+      const issues = Array.isArray(payload.hardcodedTexts)
+        ? payload.hardcodedTexts
+            .map((entry) => {
+              const value = entry as Partial<HardcodedTextIssue>;
+              if (
+                typeof value.file !== "string" ||
+                typeof value.line !== "number" ||
+                typeof value.text !== "string"
+              ) {
+                return null;
+              }
+
+              const kind =
+                value.kind === "jsx_text" || value.kind === "jsx_attribute"
+                  ? value.kind
+                  : "jsx_text";
+              return {
+                file: value.file,
+                line: value.line,
+                text: value.text,
+                kind,
+              } as HardcodedTextIssue;
+            })
+            .filter(
+              (issue): issue is HardcodedTextIssue => issue !== null,
+            )
+        : [];
+      const previewEntries = issues.map(
+        (issue) => `${issue.file}:${issue.line} [${issue.kind}] ${issue.text}`,
+      );
+      const count =
+        typeof payload.summary?.hardcodedTexts === "number"
+          ? payload.summary.hardcodedTexts
+          : issues.length;
+
+      setHardcodedTextCount(count);
+      setHardcodedTextPreview(previewEntries);
+      setHardcodedTextIssues(issues);
+    } catch {
+      return;
+    }
+  }, []);
+
   const validateDotKey = useCallback(
     (value: string): string | null => {
       const key = value.trim();
@@ -277,6 +430,7 @@ export function useTranslations({ t, dialog }: UseTranslationsParams) {
       setBaselineData(cloneTranslations(next));
       setStaleData(false);
       setSaveError(null);
+      void loadCheckSummary();
     } catch (error) {
       const status =
         error instanceof Error && !Number.isNaN(Number(error.message))
@@ -290,7 +444,7 @@ export function useTranslations({ t, dialog }: UseTranslationsParams) {
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [loadCheckSummary]);
 
   useEffect(() => {
     void loadTranslations();
@@ -303,6 +457,14 @@ export function useTranslations({ t, dialog }: UseTranslationsParams) {
   useEffect(() => {
     void loadKeyUsage();
   }, [loadKeyUsage]);
+
+  useEffect(() => {
+    void loadGitDiff();
+  }, [loadGitDiff]);
+
+  useEffect(() => {
+    void loadCheckSummary();
+  }, [loadCheckSummary]);
 
   const locales = Object.keys(data);
   const allKeys = useMemo(() => {
@@ -334,6 +496,36 @@ export function useTranslations({ t, dialog }: UseTranslationsParams) {
   }, [data, fileUsages, locales, usage, usagePages]);
   const { groups: duplicateValueGroups } = useDuplicateValues(data);
   const normalizedFilter = filterValue.trim().toLowerCase();
+  const gitChangedKeySet = useMemo(
+    () => new Set(Object.keys(gitDiffByKey)),
+    [gitDiffByKey],
+  );
+  const unsavedChangedKeySet = useMemo(() => {
+    const keySet = new Set<string>();
+    for (const locale of locales) {
+      const localeData = data[locale] ?? {};
+      const localeBaseline = baselineData[locale] ?? {};
+      const localeKeys = new Set([
+        ...Object.keys(localeData),
+        ...Object.keys(localeBaseline),
+      ]);
+
+      for (const key of localeKeys) {
+        if ((localeData[key] ?? "") !== (localeBaseline[key] ?? "")) {
+          keySet.add(key);
+        }
+      }
+    }
+
+    return keySet;
+  }, [baselineData, data, locales]);
+  const changedSinceBaseKeySet = useMemo(() => {
+    const merged = new Set(gitChangedKeySet);
+    for (const key of unsavedChangedKeySet) {
+      merged.add(key);
+    }
+    return merged;
+  }, [gitChangedKeySet, unsavedChangedKeySet]);
 
   const currentSnapshot = useMemo(() => serializeTranslations(data), [data]);
   const baselineSnapshot = useMemo(
@@ -455,6 +647,10 @@ export function useTranslations({ t, dialog }: UseTranslationsParams) {
 
   const keys = allKeys.filter((key) => {
     if (normalizedFilter && !key.toLowerCase().includes(normalizedFilter)) {
+      return false;
+    }
+
+    if (showOnlyGitChanged && !changedSinceBaseKeySet.has(key)) {
       return false;
     }
 
@@ -891,6 +1087,62 @@ export function useTranslations({ t, dialog }: UseTranslationsParams) {
     setExpandedKey((current) => (current === key ? null : key));
   }, []);
 
+  const focusKey = useCallback((key: string) => {
+    const trimmed = key.trim();
+    if (!trimmed) {
+      return;
+    }
+
+    setFilterValue(trimmed);
+    setShowOnlyMissing(false);
+    setShowOnlyGitChanged(false);
+    setSelectedPage("all");
+    setSelectedFile("all");
+    setExpandedKey(trimmed);
+    setHighlightedKey(trimmed);
+  }, []);
+
+  useEffect(() => {
+    if (!highlightedKey) {
+      return;
+    }
+
+    const timeout = window.setTimeout(() => {
+      setHighlightedKey((current) => (current === highlightedKey ? null : current));
+    }, 2400);
+
+    return () => window.clearTimeout(timeout);
+  }, [highlightedKey]);
+
+  const buildSaveDiffPreview = useCallback(() => {
+    const keySet = new Set<string>();
+    for (const locale of locales) {
+      for (const key of Object.keys(data[locale] ?? {})) {
+        keySet.add(key);
+      }
+      for (const key of Object.keys(baselineData[locale] ?? {})) {
+        keySet.add(key);
+      }
+    }
+
+    const lines: string[] = [];
+    for (const key of Array.from(keySet).sort()) {
+      for (const locale of locales) {
+        const before = baselineData[locale]?.[key] ?? "";
+        const after = data[locale]?.[key] ?? "";
+        if (before === after) {
+          continue;
+        }
+
+        const beforeText = before.replace(/\n/g, "\\n");
+        const afterText = after.replace(/\n/g, "\\n");
+        lines.push(`${key} [${locale}]: "${beforeText}" -> "${afterText}"`);
+      }
+    }
+
+    return lines;
+  }, [baselineData, data, locales]);
+
   const unifyDuplicateGroup = useCallback(
     async (group: DuplicateValueGroup) => {
       const defaultKey = buildDefaultCommonKey(group.value);
@@ -977,6 +1229,28 @@ export function useTranslations({ t, dialog }: UseTranslationsParams) {
   );
 
   const save = useCallback(async () => {
+    if (hasUnsavedChanges) {
+      const allChanges = buildSaveDiffPreview();
+      const previewLimit = 12;
+      const previewLines = allChanges.slice(0, previewLimit);
+      const remainingCount = Math.max(0, allChanges.length - previewLines.length);
+      const previewMessage = [
+        t("saveReviewTitle", { count: allChanges.length, base: gitBaseRef }),
+        ...previewLines,
+        ...(remainingCount > 0
+          ? [t("saveReviewMore", { count: remainingCount })]
+          : []),
+      ].join("\n");
+
+      const shouldContinue = await dialog.confirm(previewMessage, {
+        confirmLabel: t("save"),
+        cancelLabel: t("cancel"),
+      });
+      if (!shouldContinue) {
+        return;
+      }
+    }
+
     if (staleData) {
       const shouldSave = await dialog.confirm(t("staleSaveConfirm"), {
         confirmLabel: t("save"),
@@ -1009,6 +1283,8 @@ export function useTranslations({ t, dialog }: UseTranslationsParams) {
       setBaselineData(cloneTranslations(data));
       setStaleData(false);
       setLastSavedAt(new Date());
+      void loadGitDiff();
+      void loadCheckSummary();
     } catch (error) {
       const status =
         error instanceof Error && !Number.isNaN(Number(error.message))
@@ -1022,7 +1298,18 @@ export function useTranslations({ t, dialog }: UseTranslationsParams) {
     } finally {
       setSaving(false);
     }
-  }, [data, dialog, locales, staleData, t]);
+  }, [
+    buildSaveDiffPreview,
+    data,
+    dialog,
+    gitBaseRef,
+    hasUnsavedChanges,
+    loadCheckSummary,
+    loadGitDiff,
+    locales,
+    staleData,
+    t,
+  ]);
 
   const refreshFromDisk = useCallback(async () => {
     if (hasUnsavedChanges) {
@@ -1036,8 +1323,10 @@ export function useTranslations({ t, dialog }: UseTranslationsParams) {
     }
 
     await loadTranslations();
+    await loadGitDiff();
+    await loadCheckSummary();
     setLastSavedAt(null);
-  }, [dialog, hasUnsavedChanges, loadTranslations, t]);
+  }, [dialog, hasUnsavedChanges, loadCheckSummary, loadGitDiff, loadTranslations, t]);
 
   useEffect(() => {
     if (loading || loadingError) {
@@ -1107,12 +1396,22 @@ export function useTranslations({ t, dialog }: UseTranslationsParams) {
     usage,
     usagePages,
     fileUsages,
+    gitBaseRef,
+    gitDiffAvailable,
+    gitDiffError,
+    gitDiffByKey,
+    showOnlyGitChanged,
+    changedSinceBaseKeySet,
+    hardcodedTextCount,
+    hardcodedTextPreview,
+    hardcodedTextIssues,
     duplicateValueGroups,
     placeholderMismatchByKey,
     selectedPage,
     selectedFile,
     selectedFileKeySet,
     expandedKey,
+    highlightedKey,
     locales,
     allKeys,
     keys,
@@ -1128,6 +1427,8 @@ export function useTranslations({ t, dialog }: UseTranslationsParams) {
     clearFilterRules,
     updateSortConfig,
     clearSort,
+    setGitBaseRef,
+    setShowOnlyGitChanged,
     setSelectedPage,
     setSelectedFile,
     updateNewKey,
@@ -1144,6 +1445,7 @@ export function useTranslations({ t, dialog }: UseTranslationsParams) {
     save,
     refreshFromDisk,
     toggleExpandedKey,
+    focusKey,
     unifyDuplicateGroup,
   };
 }

@@ -251,6 +251,61 @@ test("POST /api/rename-key updates literal usages and validates payload", async 
   }
 });
 
+test("GET /api/check reports plain JSX hardcoded text", async () => {
+  const project = await makeTempProject("gloss-check-hardcoded");
+  try {
+    await writeJson(path.join(project.rootDir, "src/i18n/en.json"), {
+      home: { title: "Home" },
+    });
+    await writeJson(path.join(project.rootDir, "src/i18n/nl.json"), {
+      home: { title: "Start" },
+    });
+    await fs.mkdir(path.join(project.rootDir, "src/pages"), { recursive: true });
+    await fs.writeFile(
+      path.join(project.rootDir, "src/pages/HomePage.tsx"),
+      [
+        "export function HomePage() {",
+        "  return (",
+        "    <main>",
+        "      <p>test</p>",
+        "      <p>{t('home.title')}</p>",
+        "    </main>",
+        "  );",
+        "}",
+        "",
+      ].join("\n"),
+      "utf8",
+    );
+
+    const cfg = {
+      locales: ["en", "nl"],
+      defaultLocale: "en",
+      path: "src/i18n",
+      format: "json",
+    };
+
+    await withInitCwd(project.rootDir, async () => {
+      const server = await start(cfg);
+      try {
+        const response = await fetch(`${server.baseUrl}/api/check`);
+        assert.equal(response.status, 200);
+        const payload = await response.json();
+
+        assert.ok(payload.summary.hardcodedTexts > 0);
+        assert.ok(
+          payload.hardcodedTexts.some(
+            (entry) => entry.kind === "jsx_text" && entry.text === "test",
+          ),
+        );
+      } finally {
+        await server.close();
+      }
+    });
+  } finally {
+    await project.cleanup();
+  }
+});
+
 test("usage scanners respect scan.exclude globs", async () => {
   const project = await makeTempProject("gloss-scan-exclude");
   try {
@@ -299,6 +354,77 @@ test("usage scanners respect scan.exclude globs", async () => {
 
         const files = keyUsagePayload.files.map((entry) => entry.file);
         assert.deepEqual(files, ["src/pages/LoginPage.tsx"]);
+      } finally {
+        await server.close();
+      }
+    });
+  } finally {
+    await project.cleanup();
+  }
+});
+
+test("scan.mode=ast tracks literal keys and rename updates only literal key nodes", async () => {
+  const project = await makeTempProject("gloss-ast-mode");
+  try {
+    await writeJson(path.join(project.rootDir, "src/i18n/en.json"), {
+      auth: { login: { title: "Welcome", subtitle: "Sign in" } },
+    });
+    await writeJson(path.join(project.rootDir, "src/i18n/nl.json"), {
+      auth: { login: { title: "Welkom", subtitle: "Meld je aan" } },
+    });
+    await fs.mkdir(path.join(project.rootDir, "src/pages"), { recursive: true });
+    const sourcePath = path.join(project.rootDir, "src/pages/LoginPage.tsx");
+    await fs.writeFile(
+      sourcePath,
+      [
+        "const key = 'auth.login.subtitle';",
+        "export function LoginPage() {",
+        "  t('auth.login.title');",
+        "  i18n.t(`auth.login.title`);",
+        "  t(key);",
+        "  return <div i18nKey=\"auth.login.title\" data-id=\"auth.login.title\" />;",
+        "}",
+        "",
+      ].join("\n"),
+      "utf8",
+    );
+
+    const cfg = {
+      locales: ["en", "nl"],
+      defaultLocale: "en",
+      path: "src/i18n",
+      format: "json",
+      scan: {
+        mode: "ast",
+      },
+    };
+
+    await withInitCwd(project.rootDir, async () => {
+      const server = await start(cfg);
+      try {
+        const usageResponse = await fetch(`${server.baseUrl}/api/usage`);
+        assert.equal(usageResponse.status, 200);
+        const usagePayload = await usageResponse.json();
+        assert.equal(usagePayload["auth.login.title"]?.count, 3);
+        assert.equal(usagePayload["auth.login.subtitle"], undefined);
+
+        const renameResponse = await fetch(`${server.baseUrl}/api/rename-key`, {
+          method: "POST",
+          headers: { "content-type": "application/json" },
+          body: JSON.stringify({
+            oldKey: "auth.login.title",
+            newKey: "auth.login.heading",
+          }),
+        });
+
+        assert.equal(renameResponse.status, 200);
+        const renamePayload = await renameResponse.json();
+        assert.equal(renamePayload.replacements, 3);
+
+        const updatedSource = await fs.readFile(sourcePath, "utf8");
+        assert.ok(updatedSource.includes("auth.login.heading"));
+        assert.ok(updatedSource.includes("const key = 'auth.login.subtitle';"));
+        assert.ok(updatedSource.includes("data-id=\"auth.login.title\""));
       } finally {
         await server.close();
       }

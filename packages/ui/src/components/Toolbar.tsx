@@ -10,6 +10,12 @@ type ToolbarProps = {
   t: TranslateFn;
   filterValue: string;
   onFilterChange: (value: string) => void;
+  gitBaseRef: string;
+  onGitBaseRefChange: (value: string) => void;
+  gitDiffAvailable: boolean;
+  gitDiffError: string | null;
+  showOnlyGitChanged: boolean;
+  onShowOnlyGitChangedChange: (value: boolean) => void;
   usagePages: KeyUsagePage[];
   selectedPage: string;
   onSelectedPageChange: (value: string) => void;
@@ -54,6 +60,12 @@ export default function Toolbar({
   t,
   filterValue,
   onFilterChange,
+  gitBaseRef,
+  onGitBaseRefChange,
+  gitDiffAvailable,
+  gitDiffError,
+  showOnlyGitChanged,
+  onShowOnlyGitChangedChange,
   usagePages,
   selectedPage,
   onSelectedPageChange,
@@ -164,6 +176,24 @@ export default function Toolbar({
           />
           <span>{t("showOnlyMissing")}</span>
         </label>
+        <label className="toolbar__toggle">
+          <input
+            aria-label={t("showOnlyGitChanged")}
+            type="checkbox"
+            checked={showOnlyGitChanged}
+            onChange={(event) => onShowOnlyGitChangedChange(event.target.checked)}
+          />
+          <span>{t("showOnlyGitChanged")}</span>
+        </label>
+        <label className="toolbar__field">
+          <span>{t("gitBaseLabel")}</span>
+          <input
+            aria-label={t("gitBaseLabel")}
+            value={gitBaseRef}
+            onChange={(event) => onGitBaseRefChange(event.target.value)}
+            placeholder="origin/main"
+          />
+        </label>
         <button
           type="button"
           className={showAdvanced ? "btn btn--ghost btn--small is-active" : "btn btn--ghost btn--small"}
@@ -172,6 +202,10 @@ export default function Toolbar({
           {t("advancedQuery")}
         </button>
       </div>
+
+      {!gitDiffAvailable && gitDiffError ? (
+        <p className="toolbar__git-warning">{gitDiffError}</p>
+      ) : null}
 
       {showAdvanced ? (
         <div className="toolbar__advanced">

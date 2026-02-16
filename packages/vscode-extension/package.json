@@ -1,0 +1,40 @@
+{
+  "name": "gloss-vscode",
+  "displayName": "Gloss",
+  "description": "Gloss i18n key hover preview and quick jump",
+  "version": "0.0.1",
+  "publisher": "mxml3gend",
+  "private": true,
+  "engines": {
+    "vscode": "^1.85.0"
+  },
+  "main": "./extension.js",
+  "categories": [
+    "Other"
+  ],
+  "activationEvents": [
+    "onCommand:gloss.openKeyInBrowser",
+    "onLanguage:javascript",
+    "onLanguage:javascriptreact",
+    "onLanguage:typescript",
+    "onLanguage:typescriptreact"
+  ],
+  "contributes": {
+    "commands": [
+      {
+        "command": "gloss.openKeyInBrowser",
+        "title": "Gloss: Open Key In Browser"
+      }
+    ],
+    "configuration": {
+      "title": "Gloss",
+      "properties": {
+        "gloss.serverUrl": {
+          "type": "string",
+          "default": "http://localhost:5179",
+          "description": "Base URL of your local Gloss instance."
+        }
+      }
+    }
+  }
+}

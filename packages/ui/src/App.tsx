@@ -9,7 +9,6 @@ import {
   HeroHeader,
   ModalDialog,
   StatusBar,
-  SupportCards,
   Toolbar,
   TranslationTable,
 } from "./components";
@@ -22,18 +21,10 @@ const envLink = (name: string, fallback: string) => {
 };
 
 const COMMUNITY_LINKS = {
-  repo: envLink("VITE_GLOSS_REPO_URL", "https://github.com/your-org/gloss"),
-  contribute: envLink(
-    "VITE_GLOSS_CONTRIBUTE_URL",
-    "https://github.com/your-org/gloss/pulls",
-  ),
+  repo: envLink("VITE_GLOSS_REPO_URL", "https://github.com/MXML3GEND/Gloss.git"),
   issues: envLink(
     "VITE_GLOSS_ISSUES_URL",
-    "https://github.com/your-org/gloss/issues",
-  ),
-  sponsor: envLink(
-    "VITE_GLOSS_SPONSOR_URL",
-    "https://github.com/sponsors/your-org",
+    "https://github.com/MXML3GEND/Gloss/issues",
   ),
 };
 
@@ -66,6 +57,18 @@ export default function App() {
 
   const modalDialog = useModalDialog();
   const translations = useTranslations({ t, dialog: modalDialog });
+  const { focusKey } = translations;
+
+  useEffect(() => {
+    const query = new URLSearchParams(window.location.search);
+    const deepLinkKey = query.get("key")?.trim();
+    if (!deepLinkKey) {
+      return;
+    }
+
+    focusKey(deepLinkKey);
+  }, [focusKey]);
+
   const {
     activeCell,
     setActiveCell,
@@ -92,13 +95,14 @@ export default function App() {
         communityLinks={COMMUNITY_LINKS}
       />
 
-      <SupportCards t={t} />
-
       <section className="editor-shell">
         <StatusBar
           t={t}
           loadingError={translations.loadingError}
           saveError={translations.saveError}
+          hardcodedTextCount={translations.hardcodedTextCount}
+          hardcodedTextPreview={translations.hardcodedTextPreview}
+          hardcodedTextIssues={translations.hardcodedTextIssues}
           staleData={translations.staleData}
           hasUnsavedChanges={translations.hasUnsavedChanges}
           lastSavedAt={translations.lastSavedAt}
@@ -138,6 +142,12 @@ export default function App() {
                   t={t}
                   filterValue={translations.filterValue}
                   onFilterChange={translations.setFilterValue}
+                  gitBaseRef={translations.gitBaseRef}
+                  onGitBaseRefChange={translations.setGitBaseRef}
+                  gitDiffAvailable={translations.gitDiffAvailable}
+                  gitDiffError={translations.gitDiffError}
+                  showOnlyGitChanged={translations.showOnlyGitChanged}
+                  onShowOnlyGitChangedChange={translations.setShowOnlyGitChanged}
                   usagePages={translations.usagePages}
                   selectedPage={translations.selectedPage}
                   onSelectedPageChange={translations.setSelectedPage}
@@ -190,8 +200,12 @@ export default function App() {
                         visibleKeys: translations.visibleKeys,
                         data: translations.data,
                         usage: translations.usage,
+                        gitBaseRef: translations.gitBaseRef,
+                        changedSinceBaseKeySet: translations.changedSinceBaseKeySet,
+                        gitDiffByKey: translations.gitDiffByKey,
                         selectedFileKeySet: translations.selectedFileKeySet,
                         expandedKey: translations.expandedKey,
+                        highlightedKey: translations.highlightedKey,
                         renamingKey: translations.renamingKey,
                         renameValue: translations.renameValue,
                         renameError: translations.renameError,

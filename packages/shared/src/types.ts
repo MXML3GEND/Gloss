@@ -1,6 +1,7 @@
 export type ScanConfig = {
   include?: string[];
   exclude?: string[];
+  mode?: "regex" | "ast";
 };
 
 export type GlossConfig = {

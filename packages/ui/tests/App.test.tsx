@@ -235,6 +235,10 @@ describe("Gloss App", () => {
       target: { value: "Tot ziens" },
     });
     fireEvent.click(screen.getByRole("button", { name: "Save" }));
+    const saveDialog = screen.queryByRole("dialog");
+    if (saveDialog) {
+      fireEvent.click(within(saveDialog).getByRole("button", { name: "Save" }));
+    }
 
     await waitFor(() => {
       expect(posts.length).toBe(1);

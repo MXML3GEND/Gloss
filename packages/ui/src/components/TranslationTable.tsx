@@ -3,6 +3,7 @@ import type { KeyboardEvent } from "react";
 import RenameInlineForm from "./RenameInlineForm";
 import type {
   FlatTranslationsByLocale,
+  GitKeyDiff,
   TranslateFn,
   UsageMap,
 } from "../types/translations";
@@ -13,8 +14,12 @@ type TranslationTableModel = {
   visibleKeys: string[];
   data: FlatTranslationsByLocale;
   usage: UsageMap;
+  gitBaseRef: string;
+  changedSinceBaseKeySet: Set<string>;
+  gitDiffByKey: Record<string, GitKeyDiff>;
   selectedFileKeySet: Set<string> | null;
   expandedKey: string | null;
+  highlightedKey: string | null;
   renamingKey: string | null;
   renameValue: string;
   renameError: string | null;
@@ -62,8 +67,12 @@ export default function TranslationTable({
     visibleKeys,
     data,
     usage,
+    gitBaseRef,
+    changedSinceBaseKeySet,
+    gitDiffByKey,
     selectedFileKeySet,
     expandedKey,
+    highlightedKey,
     renamingKey,
     renameValue,
     renameError,
@@ -109,6 +118,18 @@ export default function TranslationTable({
       container.scrollTop = rowBottom - viewportHeight + rowEstimate;
     }
   }, [activeCell, rowEstimate, viewportHeight, virtualizationEnabled]);
+
+  useEffect(() => {
+    if (!highlightedKey || !containerRef.current) {
+      return;
+    }
+
+    const escapedKey = highlightedKey.replace(/\\/g, "\\\\").replace(/"/g, '\\"');
+    const row = containerRef.current.querySelector(
+      `tr[data-key="${escapedKey}"]`,
+    ) as HTMLTableRowElement | null;
+    row?.scrollIntoView({ block: "center", behavior: "smooth" });
+  }, [highlightedKey, visibleKeys]);
 
   const { startIndex, topSpacerHeight, bottomSpacerHeight, renderedKeys } = useMemo(() => {
       if (!virtualizationEnabled) {
@@ -156,10 +177,19 @@ export default function TranslationTable({
     const usageCount = usageEntry?.count ?? 0;
     const usageFiles = usageEntry?.files ?? [];
     const isUnused = usageCount === 0;
+    const gitDiff = gitDiffByKey[key];
+    const hasGitDiff = Boolean(gitDiff);
+    const hasChangedSinceBase = changedSinceBaseKeySet.has(key);
     const isExpanded = expandedKey === key;
     const isFromSelectedFile = selectedFileKeySet?.has(key) ?? false;
     const hasPlaceholderMismatch = placeholderMismatchByKey.has(key);
-    const rowClassName = [rowMissingClass].filter(Boolean).join(" ");
+    const isHighlighted = highlightedKey === key;
+    const rowClassName = [
+      rowMissingClass,
+      isHighlighted ? "row-state--highlighted" : "",
+    ]
+      .filter(Boolean)
+      .join(" ");
     const keyCellClass = [
       "key-col",
       isUnused ? "key-col--unused" : "",
@@ -171,7 +201,7 @@ export default function TranslationTable({
 
     return (
       <Fragment key={key}>
-        <tr className={rowClassName}>
+        <tr className={rowClassName} data-key={key}>
           <td className={keyCellClass}>
             {key}
             {rowDirty ? " *" : ""}
@@ -181,7 +211,7 @@ export default function TranslationTable({
               isUnused ? "usage-col usage-cell usage-cell--unused" : "usage-col usage-cell"
             }
           >
-            {isUnused ? (
+            {isUnused && !hasGitDiff ? (
               <span className="usage-tag">{t("usageUnused")}</span>
             ) : (
               <button
@@ -190,7 +220,7 @@ export default function TranslationTable({
                 onClick={() => actions.onToggleExpanded(key)}
                 aria-expanded={isExpanded}
               >
-                {usageCount}
+                {usageCount > 0 ? usageCount : "Δ"}
               </button>
             )}
           </td>
@@ -198,6 +228,11 @@ export default function TranslationTable({
             <div>{t("translated", { count: translatedCount, total: locales.length })}</div>
             {rowDirty ? <div>{t("changedSuffix")}</div> : null}
             <div className="status-col__tags">
+              {hasChangedSinceBase ? (
+                <span className="status-inline-tag status-inline-tag--info">
+                  {t("gitChangedTag")}
+                </span>
+              ) : null}
               {hasPlaceholderMismatch ? (
                 <span className="status-inline-tag status-inline-tag--warning">
                   {t("placeholderMismatchTag")}
@@ -282,6 +317,31 @@ export default function TranslationTable({
                     ))}
                   </ul>
                 )}
+                {gitDiff ? (
+                  <div className="key-diff-block">
+                    <strong>{t("gitDiffLabel", { base: gitBaseRef })}</strong>
+                    <ul className="usage-files-list">
+                      {gitDiff.changes.map((change) => {
+                        const kindLabel =
+                          change.kind === "added"
+                            ? t("gitDiffKindAdded")
+                            : change.kind === "removed"
+                              ? t("gitDiffKindRemoved")
+                              : t("gitDiffKindChanged");
+
+                        return (
+                          <li key={`${key}-${change.locale}`}>
+                            <span className="key-diff-line">
+                              {change.locale} ({kindLabel}):{" "}
+                              {JSON.stringify(change.before)} {" -> "}{" "}
+                              {JSON.stringify(change.after)}
+                            </span>
+                          </li>
+                        );
+                      })}
+                    </ul>
+                  </div>
+                ) : null}
               </div>
             </td>
           </tr>

@@ -55,7 +55,6 @@
     },
     "table": {
       "columns": {
-        "name": "Name",
         "updatedAt": "Updated at"
       }
     },
@@ -111,7 +110,6 @@
     },
     "table": {
       "columns": {
-        "name": "Name",
         "updatedAt": "Updated at"
       }
     }
@@ -162,7 +160,6 @@
     },
     "table": {
       "columns": {
-        "name": "Name",
         "updatedAt": "Updated at"
       }
     }
@@ -217,7 +214,6 @@
     },
     "table": {
       "columns": {
-        "name": "Name",
         "updatedAt": "Updated at"
       }
     },
@@ -275,7 +271,6 @@
     },
     "table": {
       "columns": {
-        "name": "Name",
         "updatedAt": "Updated at"
       }
     }
@@ -329,7 +324,6 @@
     },
     "table": {
       "columns": {
-        "name": "Name",
         "updatedAt": "Updated at"
       }
     }
@@ -378,7 +372,6 @@
     },
     "table": {
       "columns": {
-        "name": "Name",
         "updatedAt": "Updated at"
       }
     },
@@ -433,7 +426,6 @@
     },
     "table": {
       "columns": {
-        "name": "Name",
         "updatedAt": "Updated at"
       }
     }
@@ -496,7 +488,6 @@
     },
     "table": {
       "columns": {
-        "name": "Name",
         "updatedAt": "Updated at"
       }
     },
@@ -549,7 +540,6 @@
     },
     "table": {
       "columns": {
-        "name": "Name",
         "updatedAt": "Updated at"
       }
     },
@@ -607,7 +597,6 @@
     },
     "table": {
       "columns": {
-        "name": "Name",
         "updatedAt": "Updated at"
       }
     }
@@ -666,7 +655,6 @@
     },
     "table": {
       "columns": {
-        "name": "Name",
         "updatedAt": "Updated at"
       }
     },
@@ -728,7 +716,6 @@
     },
     "table": {
       "columns": {
-        "name": "Name",
         "updatedAt": "Updated at"
       }
     }
@@ -782,7 +769,6 @@
     },
     "table": {
       "columns": {
-        "name": "Name",
         "updatedAt": "Updated at"
       }
     }
@@ -839,7 +825,6 @@
     },
     "table": {
       "columns": {
-        "name": "Name",
         "updatedAt": "Updated at"
       }
     }
@@ -900,7 +885,6 @@
     },
     "table": {
       "columns": {
-        "name": "Name",
         "updatedAt": "Updated at"
       }
     }
@@ -954,7 +938,6 @@
     },
     "table": {
       "columns": {
-        "name": "Name",
         "updatedAt": "Updated at"
       }
     }
@@ -1005,7 +988,6 @@
     },
     "table": {
       "columns": {
-        "name": "Name",
         "updatedAt": "Updated at"
       }
     }
@@ -1059,7 +1041,6 @@
     },
     "table": {
       "columns": {
-        "name": "Name",
         "updatedAt": "Updated at"
       }
     }
@@ -1107,13 +1088,13 @@
     },
     "table": {
       "columns": {
-        "name": "Name",
         "updatedAt": "Updated at"
       }
     }
   },
   "common": {
     "cancel": "Cancel",
-    "status": "Status"
+    "status": "Status",
+    "name": "Name"
   }
 }

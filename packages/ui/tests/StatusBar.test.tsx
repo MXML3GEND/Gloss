@@ -16,6 +16,21 @@ const t: TranslateFn = (key, variables) => {
   if (key === "unsavedChanges") {
     return "You have unsaved changes.";
   }
+  if (key === "hardcodedTextStatus") {
+    return `Hardcoded text: ${variables?.count ?? 0}`;
+  }
+  if (key === "hardcodedTextLocations") {
+    return "Hardcoded locations";
+  }
+  if (key === "hardcodedTextShowLocations") {
+    return "Show";
+  }
+  if (key === "hardcodedTextHideLocations") {
+    return "Hide";
+  }
+  if (key === "hardcodedTextNoLocations") {
+    return "No hardcoded text locations available.";
+  }
 
   return String(key);
 };
@@ -77,5 +92,33 @@ describe("StatusBar", () => {
     );
 
     expect(screen.getAllByText(/Saved at/).length).toBeGreaterThan(0);
+  });
+
+  it("shows hardcoded locations when count is available", () => {
+    render(
+      <StatusBar
+        t={t}
+        loadingError={null}
+        saveError={null}
+        hardcodedTextCount={2}
+        hardcodedTextIssues={[
+          {
+            file: "src/App.tsx",
+            line: 10,
+            kind: "jsx_text",
+            text: "test",
+          },
+        ]}
+        staleData={false}
+        hasUnsavedChanges={false}
+        lastSavedAt={null}
+        onRefresh={() => undefined}
+      />,
+    );
+
+    expect(screen.getByText("Hardcoded text: 2")).toBeTruthy();
+    fireEvent.click(screen.getByRole("button", { name: /Hardcoded text: 2/ }));
+    expect(screen.getByText("Hardcoded locations")).toBeTruthy();
+    expect(screen.getByText("test")).toBeTruthy();
   });
 });

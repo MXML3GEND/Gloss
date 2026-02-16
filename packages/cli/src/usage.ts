@@ -2,7 +2,7 @@ import fs from "node:fs/promises";
 import path from "node:path";
 import type { GlossConfig } from "@gloss/shared";
 import { createScanMatcher } from "./scanFilters.js";
-import { isLikelyTranslationKey } from "./translationKeys.js";
+import { extractTranslationKeys } from "./usageExtractor.js";
 
 const SUPPORTED_EXTENSIONS = [
   ".ts",
@@ -51,29 +51,6 @@ const hasSkippedPathSegment = (relativePath: string) =>
 
 const isSupportedFile = (name: string) =>
   SUPPORTED_EXTENSIONS.some((extension) => name.endsWith(extension));
-
-const extractTranslationKeys = (content: string): Set<string> => {
-  const keys = new Set<string>();
-  const regexes = [
-    /\b(?:t|i18n\.t|translate)\(\s*["'`]([^"'`]+)["'`]\s*[\),]/g,
-    /\bi18nKey\s*=\s*["'`]([^"'`]+)["'`]/g,
-  ];
-
-  for (const regex of regexes) {
-    let match: RegExpExecArray | null = regex.exec(content);
-
-    while (match) {
-      const key = match[1]?.trim();
-      if (key && isLikelyTranslationKey(key)) {
-        keys.add(key);
-      }
-
-      match = regex.exec(content);
-    }
-  }
-
-  return keys;
-};
 
 const extractRelativeImports = (content: string): string[] => {
   const imports = new Set<string>();
@@ -164,6 +141,7 @@ const collectFiles = async (
   directory: string,
   projectDir: string,
   shouldScanFile: (relativePath: string) => boolean,
+  cfg: GlossConfig,
   files: SourceFileInfo[],
 ): Promise<void> => {
   const entries = await fs.readdir(directory, { withFileTypes: true });
@@ -180,7 +158,7 @@ const collectFiles = async (
         continue;
       }
 
-      await collectFiles(fullPath, projectDir, shouldScanFile, files);
+      await collectFiles(fullPath, projectDir, shouldScanFile, cfg, files);
       continue;
     }
 
@@ -201,7 +179,7 @@ const collectFiles = async (
     files.push({
       filePath: fullPath,
       relativePath,
-      keys: extractTranslationKeys(content),
+      keys: new Set(extractTranslationKeys(content, fullPath, cfg.scan?.mode)),
       imports: extractRelativeImports(content),
     });
   }
@@ -230,7 +208,7 @@ export async function buildKeyUsageMap(cfg: GlossConfig) {
       continue;
     }
 
-    await collectFiles(sourceRoot, root, shouldScanFile, files);
+    await collectFiles(sourceRoot, root, shouldScanFile, cfg, files);
   }
 
   const fileByPath = new Map(files.map((file) => [path.resolve(file.filePath), file]));

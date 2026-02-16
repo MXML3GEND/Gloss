@@ -13,7 +13,7 @@ npx gloss
 Or add as a dev dependency:
 
 ```bash
-npm install -D gloss
+npm install -D @mxml3gend/gloss
 npx gloss
 ```
 
@@ -46,6 +46,7 @@ const config = {
   scan: {
     include: ["src/**/*.{ts,tsx,js,jsx}"],
     exclude: ["**/*.test.*", "**/*.stories.*", "**/__mocks__/**"],
+    mode: "regex", // optional: "ast" for strict AST usage scanning
   },
 };
 
@@ -70,6 +71,9 @@ gloss --help
 gloss --version
 gloss --no-open
 gloss --port 5179
+gloss check --format json
+gloss gen-types --out src/types/i18n-keys.d.ts
+gloss open key auth.login.title
 ```
 
 ## Local development
@@ -79,6 +83,10 @@ npm install
 npm run check
 npm run dev
 ```
+
+## VS Code ergonomics
+
+See `packages/vscode-extension` for hover previews and quick key jump support.
 
 ## License
 

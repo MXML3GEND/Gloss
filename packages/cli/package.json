@@ -1,6 +1,6 @@
 {
-  "name": "gloss",
-  "version": "0.1.0",
+  "name": "@mxml3gend/gloss",
+  "version": "0.1.2",
   "description": "Local-first CLI + web app for managing i18n translation files",
   "license": "MIT",
   "type": "module",
@@ -8,7 +8,9 @@
   "exports": {
     ".": "./dist/index.js"
   },
-  "bin": "./dist/index.js",
+  "bin": {
+    "gloss": "./dist/index.js"
+  },
   "files": [
     "dist",
     "README.md",
@@ -24,6 +26,7 @@
     "dev": "tsx src/index.ts",
     "dev:server": "tsx src/devServer.ts",
     "build": "tsc -p tsconfig.json && node ./scripts/copy-ui-dist.mjs",
+    "prepublishOnly": "npm run build",
     "test": "npm run build && node --test tests/**/*.test.mjs"
   },
   "devDependencies": {
@@ -36,6 +39,15 @@
   "dependencies": {
     "cors": "^2.8.6",
     "express": "^5.2.1",
-    "open": "^11.0.0"
-  }
+    "open": "^11.0.0",
+    "typescript": "^5.9.3"
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/MXML3GEND/gloss"
+  },
+  "bugs": {
+    "url": "https://github.com/MXML3GEND/gloss/issues"
+  },
+  "homepage": "https://github.com/MXML3GEND/gloss#readme"
 }

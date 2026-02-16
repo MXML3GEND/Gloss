@@ -37,15 +37,17 @@ const normalizeScanConfig = (value: unknown): GlossConfig["scan"] => {
     return undefined;
   }
 
-  const scan = value as { include?: unknown; exclude?: unknown };
+  const scan = value as { include?: unknown; exclude?: unknown; mode?: unknown };
   const include = normalizeScanPatterns(scan.include);
   const exclude = normalizeScanPatterns(scan.exclude);
+  const mode =
+    scan.mode === "regex" || scan.mode === "ast" ? scan.mode : undefined;
 
-  if (!include && !exclude) {
+  if (!include && !exclude && !mode) {
     return undefined;
   }
 
-  return { include, exclude };
+  return { include, exclude, mode };
 };
 
 const CONFIG_FILE_NAMES = [
@@ -55,6 +57,50 @@ const CONFIG_FILE_NAMES = [
   "gloss.config.mjs",
   "gloss.config.cjs",
 ];
+
+const LOCALE_CODE_PATTERN = /^[A-Za-z]{2,3}(?:[-_][A-Za-z0-9]{2,8})*$/;
+
+const AUTO_DISCOVERY_IGNORED_DIRECTORIES = new Set([
+  "node_modules",
+  ".git",
+  ".next",
+  ".nuxt",
+  ".turbo",
+  "dist",
+  "build",
+  "coverage",
+  "out",
+]);
+
+const DIRECTORY_NAME_SCORES = new Map<string, number>([
+  ["i18n", 80],
+  ["locales", 80],
+  ["locale", 60],
+  ["translations", 55],
+  ["translation", 45],
+  ["lang", 35],
+  ["langs", 35],
+  ["messages", 25],
+]);
+
+type LocaleDirectoryCandidate = {
+  directoryPath: string;
+  locales: string[];
+  depth: number;
+};
+
+const normalizePath = (filePath: string) =>
+  filePath.split(path.sep).join("/").replace(/^\.\//, "");
+
+const isLikelyLocaleCode = (value: string) => LOCALE_CODE_PATTERN.test(value);
+
+const scoreDirectoryName = (directoryPath: string) => {
+  const segments = normalizePath(directoryPath).split("/");
+  return segments.reduce((score, segment) => {
+    const nextScore = DIRECTORY_NAME_SCORES.get(segment.toLowerCase());
+    return score + (nextScore ?? 0);
+  }, 0);
+};
 
 const resolveLocalesDirectory = (cwd: string, localesPath: string) => {
   if (path.isAbsolute(localesPath)) {
@@ -69,14 +115,127 @@ const discoverLocales = async (cwd: string, localesPath: string) => {
 
   try {
     const entries = await fs.readdir(directory, { withFileTypes: true });
-    return entries
+    const localeCandidates = entries
       .filter((entry) => entry.isFile() && entry.name.endsWith(".json"))
       .map((entry) => path.basename(entry.name, ".json").trim())
+      .filter((entry) => entry.length > 0);
+
+    const likelyLocales = localeCandidates.filter(isLikelyLocaleCode);
+    const localesToUse =
+      likelyLocales.length > 0 ? likelyLocales : localeCandidates;
+
+    return localesToUse
       .filter((entry) => entry.length > 0)
       .sort((a, b) => a.localeCompare(b));
   } catch {
     return [];
   }
+};
+
+const discoverLocaleDirectoryCandidates = async (
+  cwd: string,
+): Promise<LocaleDirectoryCandidate[]> => {
+  const candidates: LocaleDirectoryCandidate[] = [];
+
+  const visit = async (directory: string) => {
+    const entries = await fs.readdir(directory, { withFileTypes: true });
+
+    const directoryLocales = entries
+      .filter((entry) => entry.isFile() && entry.name.endsWith(".json"))
+      .map((entry) => path.basename(entry.name, ".json").trim())
+      .filter((entry) => isLikelyLocaleCode(entry));
+
+    if (directoryLocales.length > 0) {
+      const normalizedDirectory = normalizePath(path.relative(cwd, directory));
+      const uniqueLocales = Array.from(new Set(directoryLocales)).sort((a, b) =>
+        a.localeCompare(b),
+      );
+      const depth =
+        normalizedDirectory.length === 0
+          ? 0
+          : normalizedDirectory.split("/").length;
+
+      candidates.push({
+        directoryPath: directory,
+        locales: uniqueLocales,
+        depth,
+      });
+    }
+
+    for (const entry of entries) {
+      if (!entry.isDirectory()) {
+        continue;
+      }
+
+      if (
+        entry.name.startsWith(".") ||
+        AUTO_DISCOVERY_IGNORED_DIRECTORIES.has(entry.name)
+      ) {
+        continue;
+      }
+
+      await visit(path.join(directory, entry.name));
+    }
+  };
+
+  await visit(cwd);
+  return candidates;
+};
+
+const selectLocaleDirectoryCandidate = (
+  candidates: LocaleDirectoryCandidate[],
+  preferredLocales: string[],
+) => {
+  const scored = candidates.map((candidate) => {
+    const localeMatches = preferredLocales.filter((locale) =>
+      candidate.locales.includes(locale),
+    );
+    const allPreferredMatch =
+      preferredLocales.length > 0 &&
+      preferredLocales.every((locale) => candidate.locales.includes(locale));
+    const directoryNameScore = scoreDirectoryName(candidate.directoryPath);
+    const srcHintScore = normalizePath(candidate.directoryPath).includes("/src/")
+      ? 15
+      : 0;
+    const depthScore = Math.max(0, 30 - candidate.depth * 3);
+    const localeCountScore = candidate.locales.length * 10;
+    const preferredScore = localeMatches.length * 25 + (allPreferredMatch ? 80 : 0);
+    const score =
+      directoryNameScore +
+      srcHintScore +
+      depthScore +
+      localeCountScore +
+      preferredScore;
+
+    return { candidate, score };
+  });
+
+  scored.sort((left, right) => {
+    if (left.score !== right.score) {
+      return right.score - left.score;
+    }
+
+    if (left.candidate.depth !== right.candidate.depth) {
+      return left.candidate.depth - right.candidate.depth;
+    }
+
+    return left.candidate.directoryPath.localeCompare(right.candidate.directoryPath);
+  });
+
+  return scored[0]?.candidate;
+};
+
+const resolveDiscoveredPath = (cwd: string, directoryPath: string) => {
+  const relative = path.relative(cwd, directoryPath);
+  if (!relative || relative === ".") {
+    return ".";
+  }
+
+  if (!relative.startsWith("..") && !path.isAbsolute(relative)) {
+    return normalizePath(relative);
+  }
+
+  return directoryPath;
 };
 
 const resolveConfigPath = async (cwd: string) => {
@@ -127,13 +286,15 @@ export async function loadGlossConfig(): Promise<GlossConfig> {
       );
     }
 
-    if (typeof cfg.path !== "string" || !cfg.path.trim()) {
+    if (
+      cfg.path !== undefined &&
+      (typeof cfg.path !== "string" || !cfg.path.trim())
+    ) {
       throw new GlossConfigError(
         "INVALID_CONFIG",
-        "`path` must be a non-empty string.",
+        "`path` must be a non-empty string when provided.",
       );
     }
-    const translationsPath = cfg.path.trim();
 
     if (cfg.locales !== undefined && !Array.isArray(cfg.locales)) {
       throw new GlossConfigError(
@@ -148,10 +309,32 @@ export async function loadGlossConfig(): Promise<GlossConfig> {
           .filter((entry) => entry.length > 0)
       : [];
 
+    const configuredPath = typeof cfg.path === "string" ? cfg.path.trim() : "";
+    const discoveredDirectoryCandidate = configuredPath
+      ? null
+      : selectLocaleDirectoryCandidate(
+          await discoverLocaleDirectoryCandidates(cwd),
+          configuredLocales,
+        );
+    const translationsPath = configuredPath
+      ? configuredPath
+      : discoveredDirectoryCandidate
+        ? resolveDiscoveredPath(cwd, discoveredDirectoryCandidate.directoryPath)
+        : "";
+
+    if (!translationsPath) {
+      throw new GlossConfigError(
+        "NO_LOCALES",
+        "No locale directory found. Set `path` in config or add locale JSON files (for example `src/locales/en.json`).",
+      );
+    }
+
     const locales =
       configuredLocales.length > 0
         ? configuredLocales
-        : await discoverLocales(cwd, translationsPath);
+        : discoveredDirectoryCandidate
+          ? discoveredDirectoryCandidate.locales
+          : await discoverLocales(cwd, translationsPath);
     if (locales.length === 0) {
       throw new GlossConfigError(
         "NO_LOCALES",
@@ -159,13 +342,21 @@ export async function loadGlossConfig(): Promise<GlossConfig> {
       );
     }
 
-    if (typeof cfg.defaultLocale !== "string" || !cfg.defaultLocale.trim()) {
+    if (
+      cfg.defaultLocale !== undefined &&
+      (typeof cfg.defaultLocale !== "string" || !cfg.defaultLocale.trim())
+    ) {
       throw new GlossConfigError(
         "INVALID_CONFIG",
-        "`defaultLocale` must be a non-empty string.",
+        "`defaultLocale` must be a non-empty string when provided.",
       );
     }
-    const defaultLocale = cfg.defaultLocale.trim();
+    const defaultLocale =
+      typeof cfg.defaultLocale === "string" && cfg.defaultLocale.trim()
+        ? cfg.defaultLocale.trim()
+        : locales.includes("en")
+          ? "en"
+          : locales[0];
     if (!locales.includes(defaultLocale)) {
       throw new GlossConfigError(
         "INVALID_CONFIG",

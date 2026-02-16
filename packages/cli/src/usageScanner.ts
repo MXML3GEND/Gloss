@@ -2,7 +2,7 @@ import fs from "node:fs/promises";
 import path from "node:path";
 import type { GlossConfig, ScanConfig } from "@gloss/shared";
 import { createScanMatcher } from "./scanFilters.js";
-import { isLikelyTranslationKey } from "./translationKeys.js";
+import { extractTranslationKeys } from "./usageExtractor.js";
 
 export type UsageMap = Record<
   string,
@@ -26,11 +26,6 @@ const IGNORED_DIRECTORIES = new Set([
 ]);
 
 const SCANNED_EXTENSIONS = new Set([".ts", ".tsx", ".js", ".jsx"]);
-
-const USAGE_REGEXES = [
-  /\b(?:t|i18n\.t|translate)\(\s*["'`]([^"'`]+)["'`]\s*[\),]/g,
-  /\bi18nKey\s*=\s*["'`]([^"'`]+)["'`]/g,
-];
 
 const projectRoot = () => process.env.INIT_CWD || process.cwd();
 
@@ -110,30 +105,20 @@ export async function scanUsage(
       }
 
       const source = await fs.readFile(fullPath, "utf8");
-      for (const usageRegex of USAGE_REGEXES) {
-        let match = usageRegex.exec(source);
-
-        while (match) {
-          const key = match[1]?.trim();
-          if (key && isLikelyTranslationKey(key)) {
-            if (!usage[key]) {
-              usage[key] = { count: 0, files: [] };
-              seenFilesByKey.set(key, new Set());
-            }
-
-            usage[key].count += 1;
-            const fileSet = seenFilesByKey.get(key);
-
-            if (fileSet && !fileSet.has(relativePath)) {
-              fileSet.add(relativePath);
-              usage[key].files.push(relativePath);
-            }
-          }
-
-          match = usageRegex.exec(source);
+      const keys = extractTranslationKeys(source, fullPath, scan?.mode);
+      for (const key of keys) {
+        if (!usage[key]) {
+          usage[key] = { count: 0, files: [] };
+          seenFilesByKey.set(key, new Set());
         }
 
-        usageRegex.lastIndex = 0;
+        usage[key].count += 1;
+        const fileSet = seenFilesByKey.get(key);
+
+        if (fileSet && !fileSet.has(relativePath)) {
+          fileSet.add(relativePath);
+          usage[key].files.push(relativePath);
+        }
       }
     }
   };

@@ -18,6 +18,7 @@ export default function DuplicateValuesPanel({
   return (
     <div className="duplicates-panel">
       <p className="duplicates-panel__title">{t("duplicateValuesTitle")}</p>
+      <p>dzqdzqdqzdqz</p>
 
       <div className="duplicates-panel__list">
         {groups.map((group) => (

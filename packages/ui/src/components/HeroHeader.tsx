@@ -3,9 +3,7 @@ import type { TranslateFn } from "../types/translations";
 
 type CommunityLinks = {
   repo: string;
-  contribute: string;
   issues: string;
-  sponsor: string;
 };
 
 type HeroHeaderProps = {
@@ -30,9 +28,7 @@ export default function HeroHeader({
   return (
     <header className="hero">
       <div className="hero__top">
-        <p className="hero__eyebrow">{t("heroEyebrow")}</p>
         <div className="language-switch" aria-label={t("languageLabel")}>
-          <span>{t("languageLabel")}</span>
           <button
             type="button"
             className={
@@ -57,7 +53,7 @@ export default function HeroHeader({
           </button>
         </div>
       </div>
-      <h1 className="hero__title">Gloss</h1>
+      <img className="hero__logo" src="/logo_full.png" alt="Gloss" />
       <p className="hero__summary">{t("heroSummary")}</p>
 
       <div className="hero__stats">
@@ -86,27 +82,11 @@ export default function HeroHeader({
         </a>
         <a
           className="btn btn--ghost"
-          href={communityLinks.contribute}
-          target="_blank"
-          rel="noreferrer"
-        >
-          {t("contribute")}
-        </a>
-        <a
-          className="btn btn--ghost"
           href={communityLinks.issues}
           target="_blank"
           rel="noreferrer"
         >
           {t("reportIssue")}
-        </a>
-        <a
-          className="btn btn--support"
-          href={communityLinks.sponsor}
-          target="_blank"
-          rel="noreferrer"
-        >
-          {t("sponsor")}
         </a>
       </div>
     </header>

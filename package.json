@@ -5,8 +5,8 @@
     "packages/*"
   ],
   "scripts": {
-    "dev": "npm -w gloss run dev",
-    "build": "npm -w @gloss/shared run build && npm -w @gloss/ui run build && npm -w gloss run build",
+    "dev": "npm -w @mxml3gend/gloss run dev",
+    "build": "npm -w @gloss/shared run build && npm -w @gloss/ui run build && npm -w @mxml3gend/gloss run build",
     "lint": "npm run lint --workspaces --if-present",
     "test": "npm run test --workspaces --if-present",
     "test:e2e": "npx playwright test",
