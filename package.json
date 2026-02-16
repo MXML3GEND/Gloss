@@ -1,0 +1,20 @@
+{
+  "name": "gloss",
+  "private": true,
+  "workspaces": [
+    "packages/*"
+  ],
+  "scripts": {
+    "dev": "npm -w gloss run dev",
+    "build": "npm -w @gloss/shared run build && npm -w @gloss/ui run build && npm -w gloss run build",
+    "lint": "npm run lint --workspaces --if-present",
+    "test": "npm run test --workspaces --if-present",
+    "test:e2e": "npx playwright test",
+    "test:e2e:headed": "npx playwright test --headed",
+    "test:e2e:install": "npx playwright install chromium",
+    "check": "npm run lint && npm run test && npm run build"
+  },
+  "devDependencies": {
+    "@playwright/test": "^1.58.2"
+  }
+}

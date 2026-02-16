@@ -1,0 +1,1129 @@
+{
+  "admin": {
+    "actions": {
+      "primary": "Opslaan admin changes",
+      "secondary": "Review admin details (NL)"
+    },
+    "audit": {
+      "export": "Export audit log (NL)",
+      "exportDisclaimer": "Audit exports may contain personal data.\nEnsure compliance with your internal retention and access policy before sharing outside your organization. (NL)",
+      "title": ""
+    },
+    "cards": {
+      "card1": {
+        "description": "Track admin card 1 metrics and review recent changes from your team. (NL)",
+        "title": "Admin card 1 (NL)"
+      },
+      "card2": {
+        "description": "Track admin card 2 metrics and review recent changes from your team. (NL)",
+        "title": "Admin card 2 (NL)"
+      }
+    },
+    "experimental": {
+      "unusedFeature01": "",
+      "unusedFeature02": "Unused fixture text for admin.experimental.unusedFeature02 (NL)",
+      "unusedFeature03": "Unused fixture text for admin.experimental.unusedFeature03 (NL)",
+      "unusedFeature04": "Unused fixture text for admin.experimental.unusedFeature04 (NL)",
+      "unusedFeature05": "Unused fixture text for admin.experimental.unusedFeature05 (NL)",
+      "unusedFeature06": "",
+      "unusedFeature07": "Unused fixture text for admin.experimental.unusedFeature07 (NL)",
+      "unusedFeature08": "Unused fixture text for admin.experimental.unusedFeature08 (NL)"
+    },
+    "filters": {
+      "search": {
+        "placeholder": "Zoek admin..."
+      },
+      "sortBy": {
+        "label": "Sort by (NL)"
+      }
+    },
+    "flags": {
+      "enable": ""
+    },
+    "page": {
+      "subtitle": "Manage admin workflows with consistent team copy. (NL)",
+      "title": "Admin (NL)"
+    },
+    "roles": {
+      "assign": "Assign role (NL)",
+      "title": "Roles and permissions (NL)"
+    },
+    "status": {
+      "empty": "",
+      "loading": "Laden admin data...",
+      "success": "Admin succesvol bijgewerkt."
+    },
+    "table": {
+      "columns": {
+        "name": "Name (NL)",
+        "updatedAt": ""
+      }
+    },
+    "users": {
+      "add": "Add user (NL)",
+      "title": "User management (NL)"
+    }
+  },
+  "analytics": {
+    "actions": {
+      "primary": "Opslaan analytics changes",
+      "secondary": ""
+    },
+    "cards": {
+      "card1": {
+        "description": "Track analytics card 1 metrics and review recent changes from your team. (NL)",
+        "title": "Analytics card 1 (NL)"
+      },
+      "card2": {
+        "description": "Track analytics card 2 metrics and review recent changes from your team. (NL)",
+        "title": "Analytics card 2 (NL)"
+      }
+    },
+    "charts": {
+      "engagement": "",
+      "revenue": "Revenue trend (NL)"
+    },
+    "filters": {
+      "search": {
+        "placeholder": "Zoek analytics..."
+      },
+      "sortBy": {
+        "label": "Sort by (NL)"
+      }
+    },
+    "kpi": {
+      "activeUsers": "Active users (NL)",
+      "churnRate": "",
+      "newSignups": "New signups (NL)",
+      "timeToValue": "Single-use copy for kpi timeToValue (NL)"
+    },
+    "overview": {
+      "title": "Analytics overview (NL)"
+    },
+    "page": {
+      "subtitle": "Manage analytics workflows with consistent team copy. (NL)",
+      "title": ""
+    },
+    "status": {
+      "empty": "Geen analytics items found yet.",
+      "loading": "Laden analytics data...",
+      "success": "Analytics succesvol bijgewerkt."
+    },
+    "table": {
+      "columns": {
+        "name": "Name (NL)",
+        "updatedAt": "Updated at (NL)"
+      }
+    }
+  },
+  "auth": {
+    "actions": {
+      "primary": "Opslaan authentication changes",
+      "secondary": "Review authentication details (NL)"
+    },
+    "cards": {
+      "card1": {
+        "description": "",
+        "title": "Authentication card 1 (NL)"
+      },
+      "card2": {
+        "description": "Track authentication card 2 metrics and review recent changes from your team. (NL)",
+        "title": "Authentication card 2 (NL)"
+      }
+    },
+    "filters": {
+      "search": {
+        "placeholder": "Zoek authentication..."
+      },
+      "sortBy": {
+        "label": ""
+      }
+    },
+    "login": {
+      "emailLabel": "Email address (NL)",
+      "forgotPassword": "Forgot password? (NL)",
+      "greeting": "Hallo {name}",
+      "passwordLabel": "Password (NL)",
+      "sessionRestoredHint": "",
+      "submit": "Sign in (NL)",
+      "subtitle": "Sign in to continue to your workspace. (NL)",
+      "successBanner": "You are now signed in. (NL)",
+      "title": "Welkom back"
+    },
+    "page": {
+      "subtitle": "",
+      "title": "Authentication (NL)"
+    },
+    "status": {
+      "empty": "Geen authentication items found yet.",
+      "loading": "Laden authentication data...",
+      "success": "Authentication succesvol bijgewerkt."
+    },
+    "table": {
+      "columns": {
+        "name": "",
+        "updatedAt": "Updated at (NL)"
+      }
+    }
+  },
+  "billing": {
+    "actions": {
+      "primary": "Opslaan billing changes",
+      "secondary": ""
+    },
+    "cards": {
+      "card1": {
+        "description": "Track billing card 1 metrics and review recent changes from your team. (NL)",
+        "title": "Billing card 1 (NL)"
+      },
+      "card2": {
+        "description": "Track billing card 2 metrics and review recent changes from your team. (NL)",
+        "title": "Billing card 2 (NL)"
+      }
+    },
+    "filters": {
+      "search": {
+        "placeholder": ""
+      },
+      "sortBy": {
+        "label": "Sort by (NL)"
+      }
+    },
+    "invoice": {
+      "download": "Download invoice (NL)",
+      "legalNotice": "Legal notice:\nPayment is due within 14 days.\nLate fees may apply according to your service agreement.\nContact finance@gloss.dev for disputes. (NL)",
+      "statusPaid": "Paid (NL)",
+      "statusPending": "",
+      "vatExplanation": "Single-use copy for invoice vatExplanation (NL)"
+    },
+    "overview": {
+      "title": "Billing overview (NL)"
+    },
+    "page": {
+      "subtitle": "Manage billing workflows with consistent team copy. (NL)",
+      "title": "Billing (NL)"
+    },
+    "paymentMethod": {
+      "addCard": ""
+    },
+    "status": {
+      "empty": "Geen billing items found yet.",
+      "loading": "Laden billing data...",
+      "success": "Billing succesvol bijgewerkt."
+    },
+    "summary": {
+      "balanceDue": "{name}, your balance due is {amount} (NL)"
+    },
+    "table": {
+      "columns": {
+        "name": "",
+        "updatedAt": "Updated at (NL)"
+      }
+    },
+    "trial": {
+      "endsSoon": "Your trial ends in {count} days (NL)"
+    }
+  },
+  "dashboard": {
+    "actions": {
+      "primary": "",
+      "secondary": "Review dashboard details (NL)"
+    },
+    "cards": {
+      "card1": {
+        "description": "Track dashboard card 1 metrics and review recent changes from your team. (NL)",
+        "title": "Dashboard card 1 (NL)"
+      },
+      "card2": {
+        "description": "Track dashboard card 2 metrics and review recent changes from your team. (NL)",
+        "title": ""
+      }
+    },
+    "filters": {
+      "search": {
+        "placeholder": "Zoek dashboard..."
+      },
+      "sortBy": {
+        "label": "Sort by (NL)"
+      }
+    },
+    "header": {
+      "welcome": "Welkom to your dashboard"
+    },
+    "page": {
+      "subtitle": "Manage dashboard workflows with consistent team copy. (NL)",
+      "title": ""
+    },
+    "panels": {
+      "performanceInsight": "Single-use copy for panels performanceInsight (NL)"
+    },
+    "quickActions": {
+      "inviteMember": "Invite member (NL)",
+      "newProject": "Maak project"
+    },
+    "stats": {
+      "activeProjects": "Active projects (NL)",
+      "retentionRate": "",
+      "totalRevenue": "Total revenue (NL)",
+      "totalUsers": {
+        "label": "Total users (NL)"
+      }
+    },
+    "status": {
+      "empty": "Geen dashboard items found yet.",
+      "loading": "Laden dashboard data...",
+      "success": ""
+    },
+    "table": {
+      "columns": {
+        "name": "Name (NL)",
+        "updatedAt": "Updated at (NL)"
+      }
+    }
+  },
+  "errors": {
+    "actions": {
+      "primary": "",
+      "secondary": "Review errors details (NL)"
+    },
+    "cards": {
+      "card1": {
+        "description": "Track errors card 1 metrics and review recent changes from your team. (NL)",
+        "title": "Errors card 1 (NL)"
+      },
+      "card2": {
+        "description": "Track errors card 2 metrics and review recent changes from your team. (NL)",
+        "title": ""
+      }
+    },
+    "filters": {
+      "search": {
+        "placeholder": "Zoek errors..."
+      },
+      "sortBy": {
+        "label": "Sort by (NL)"
+      }
+    },
+    "forms": {
+      "invalidEmail": "Enter a valid email address. (NL)",
+      "required": "This field is required. (NL)"
+    },
+    "network": {
+      "offline": "",
+      "retrying": "Single-use copy for network retrying (NL)",
+      "timeout": "Network timeout. Please try again. (NL)"
+    },
+    "page": {
+      "subtitle": "Manage errors workflows with consistent team copy. (NL)",
+      "title": "Errors (NL)"
+    },
+    "permissions": {
+      "denied": ""
+    },
+    "server": {
+      "unavailable": "Service is temporarily unavailable. (NL)"
+    },
+    "status": {
+      "empty": "Geen errors items found yet.",
+      "loading": "Laden errors data...",
+      "success": "Errors succesvol bijgewerkt."
+    },
+    "table": {
+      "columns": {
+        "name": "",
+        "updatedAt": "Updated at (NL)"
+      }
+    }
+  },
+  "filters": {
+    "actions": {
+      "primary": "Opslaan filters changes",
+      "secondary": ""
+    },
+    "cards": {
+      "card1": {
+        "description": "Track filters card 1 metrics and review recent changes from your team. (NL)",
+        "title": "Filters card 1 (NL)"
+      },
+      "card2": {
+        "description": "Track filters card 2 metrics and review recent changes from your team. (NL)",
+        "title": "Filters card 2 (NL)"
+      }
+    },
+    "filters": {
+      "search": {
+        "placeholder": ""
+      },
+      "sortBy": {
+        "label": "Sort by (NL)"
+      }
+    },
+    "owner": {
+      "assignedToMe": "Assigned to me (NL)"
+    },
+    "page": {
+      "subtitle": "Manage filters workflows with consistent team copy. (NL)",
+      "title": "Filters (NL)"
+    },
+    "quick": {
+      "thisMonth": "",
+      "thisWeek": "This week (NL)",
+      "today": "Today (NL)"
+    },
+    "status": {
+      "closed": "Closed (NL)",
+      "empty": "Geen filters items found yet.",
+      "loading": "",
+      "open": "Open (NL)",
+      "success": "Filters succesvol bijgewerkt."
+    },
+    "table": {
+      "columns": {
+        "name": "Name (NL)",
+        "updatedAt": ""
+      }
+    },
+    "tags": {
+      "includeArchived": "Single-use copy for tags includeArchived (NL)"
+    }
+  },
+  "forms": {
+    "actions": {
+      "primary": "Opslaan forms changes",
+      "secondary": "Review forms details (NL)"
+    },
+    "cards": {
+      "card1": {
+        "description": "",
+        "title": "Forms card 1 (NL)"
+      },
+      "card2": {
+        "description": "Track forms card 2 metrics and review recent changes from your team. (NL)",
+        "title": "Forms card 2 (NL)"
+      }
+    },
+    "common": {
+      "reset": "",
+      "submit": "Submit (NL)"
+    },
+    "contact": {
+      "emailLabel": "Email (NL)",
+      "messageLabel": "Message (NL)",
+      "nameLabel": "Full name (NL)",
+      "placeholder": {
+        "value": ""
+      }
+    },
+    "feedback": {
+      "satisfactionLabel": "Single-use copy for feedback satisfactionLabel (NL)"
+    },
+    "filters": {
+      "search": {
+        "placeholder": "Zoek forms..."
+      },
+      "sortBy": {
+        "label": "Sort by (NL)"
+      }
+    },
+    "page": {
+      "subtitle": "Manage forms workflows with consistent team copy. (NL)",
+      "title": ""
+    },
+    "status": {
+      "empty": "Geen forms items found yet.",
+      "loading": "Laden forms data...",
+      "success": "Forms succesvol bijgewerkt."
+    },
+    "table": {
+      "columns": {
+        "name": "Name (NL)",
+        "updatedAt": "Updated at (NL)"
+      }
+    }
+  },
+  "marketing": {
+    "actions": {
+      "primary": "Opslaan marketing changes",
+      "secondary": "Review marketing details (NL)"
+    },
+    "archive": {
+      "unusedLandingA": "",
+      "unusedLandingB": "Unused fixture text for marketing.archive.unusedLandingB (NL)"
+    },
+    "campaigns": {
+      "springLaunch": {
+        "longDescription": "Spring Launch Campaign\n\nCoordinate the campaign assets, approval deadlines, and localization checkpoints across product marketing, growth, and lifecycle teams.\n\nMake sure each locale has final legal review before publication. (NL)"
+      }
+    },
+    "cards": {
+      "card1": {
+        "description": "Track marketing card 1 metrics and review recent changes from your team. (NL)",
+        "title": "Marketing card 1 (NL)"
+      },
+      "card2": {
+        "description": "",
+        "title": "Marketing card 2 (NL)"
+      }
+    },
+    "cta": {
+      "bookDemo": "Book a demo (NL)",
+      "startTrial": "Start free trial (NL)"
+    },
+    "faq": {
+      "answer": "Reach out to support for custom implementation guidance. (NL)",
+      "title": ""
+    },
+    "filters": {
+      "search": {
+        "placeholder": "Zoek marketing..."
+      },
+      "sortBy": {
+        "label": "Sort by (NL)"
+      }
+    },
+    "hero": {
+      "subtitle": "Gloss keeps teams aligned while shipping multilingual products. (NL)",
+      "title": "Build software faster with better translation workflows (NL)"
+    },
+    "page": {
+      "subtitle": "",
+      "title": "Marketing (NL)"
+    },
+    "pricing": {
+      "enterpriseBanner": "Single-use copy for pricing enterpriseBanner (NL)"
+    },
+    "status": {
+      "empty": "Geen marketing items found yet.",
+      "loading": "Laden marketing data...",
+      "success": ""
+    },
+    "table": {
+      "columns": {
+        "name": "Name (NL)",
+        "updatedAt": "Updated at (NL)"
+      }
+    },
+    "testimonials": {
+      "title": "Teams that trust Gloss (NL)"
+    }
+  },
+  "modals": {
+    "actions": {
+      "primary": "Opslaan modals changes",
+      "secondary": "Review modals details (NL)"
+    },
+    "archiveProject": {
+      "confirmText": "Single-use copy for archiveProject confirmText (NL)"
+    },
+    "cards": {
+      "card1": {
+        "description": "Track modals card 1 metrics and review recent changes from your team. (NL)",
+        "title": ""
+      },
+      "card2": {
+        "description": "Track modals card 2 metrics and review recent changes from your team. (NL)",
+        "title": "Modals card 2 (NL)"
+      }
+    },
+    "deleteProject": {
+      "body": "This action cannot be undone and removes all project data. (NL)",
+      "title": "Verwijder project?"
+    },
+    "filters": {
+      "search": {
+        "placeholder": ""
+      },
+      "sortBy": {
+        "label": "Sort by (NL)"
+      }
+    },
+    "inviteTeam": {
+      "body": "Send invites now and assign roles after they join. (NL)",
+      "title": "Invite team members (NL)"
+    },
+    "page": {
+      "subtitle": "Manage modals workflows with consistent team copy. (NL)",
+      "title": ""
+    },
+    "status": {
+      "empty": "Geen modals items found yet.",
+      "loading": "Laden modals data...",
+      "success": "Modals succesvol bijgewerkt."
+    },
+    "table": {
+      "columns": {
+        "name": "Name (NL)",
+        "updatedAt": "Updated at (NL)"
+      }
+    },
+    "upgradePlan": {
+      "body": "Unlock advanced analytics, automation, and unlimited projects. (NL)",
+      "title": "Upgrade plan (NL)"
+    }
+  },
+  "notifications": {
+    "actions": {
+      "primary": "",
+      "secondary": "Review notifications details (NL)"
+    },
+    "banner": {
+      "saved": "Notification preferences saved. (NL)"
+    },
+    "cards": {
+      "card1": {
+        "description": "Track notifications card 1 metrics and review recent changes from your team. (NL)",
+        "title": "Notifications card 1 (NL)"
+      },
+      "card2": {
+        "description": "",
+        "title": "Notifications card 2 (NL)"
+      }
+    },
+    "center": {
+      "empty": "You are all caught up. (NL)",
+      "title": "Notification center (NL)"
+    },
+    "filters": {
+      "search": {
+        "placeholder": "Zoek notifications..."
+      },
+      "sortBy": {
+        "label": ""
+      }
+    },
+    "inbox": {
+      "unread": "You have {count} messages (NL)"
+    },
+    "page": {
+      "subtitle": "Manage notifications workflows with consistent team copy. (NL)",
+      "title": "Notifications (NL)"
+    },
+    "preferences": {
+      "email": "Email alerts (NL)",
+      "push": "",
+      "soundLabel": "Single-use copy for preferences soundLabel (NL)"
+    },
+    "status": {
+      "empty": "Geen notifications items found yet.",
+      "loading": "Laden notifications data...",
+      "success": "Notifications succesvol bijgewerkt."
+    },
+    "table": {
+      "columns": {
+        "name": "",
+        "status": {
+          "label": "Status (NL)"
+        },
+        "updatedAt": "Updated at (NL)"
+      }
+    }
+  },
+  "onboarding": {
+    "actions": {
+      "primary": "Opslaan onboarding changes",
+      "secondary": ""
+    },
+    "cards": {
+      "card1": {
+        "description": "Track onboarding card 1 metrics and review recent changes from your team. (NL)",
+        "title": "Onboarding card 1 (NL)"
+      },
+      "card2": {
+        "description": "Track onboarding card 2 metrics and review recent changes from your team. (NL)",
+        "title": "Onboarding card 2 (NL)"
+      }
+    },
+    "filters": {
+      "search": {
+        "placeholder": ""
+      },
+      "sortBy": {
+        "label": "Sort by (NL)"
+      }
+    },
+    "guide": {
+      "welcomeNarrative": "Welkom to Gloss.\n\nStep 1: Connect your repository and import translation files.\nStep 2: Invite collaborators and define review flow.\nStep 3: Publish changes and monitor translation quality over time."
+    },
+    "page": {
+      "subtitle": "Manage onboarding workflows with consistent team copy. (NL)",
+      "title": "Onboarding (NL)"
+    },
+    "status": {
+      "empty": "",
+      "loading": "Laden onboarding data...",
+      "success": "Onboarding succesvol bijgewerkt."
+    },
+    "steps": {
+      "done": {
+        "message": "Setup complete. You are ready to go. (NL)"
+      },
+      "profile": {
+        "title": "Complete your profile (NL)"
+      },
+      "project": {
+        "title": ""
+      },
+      "security": {
+        "title": "Single-use copy for steps security title (NL)"
+      },
+      "team": {
+        "title": "Invite your team (NL)"
+      }
+    },
+    "table": {
+      "columns": {
+        "name": "Name (NL)",
+        "updatedAt": ""
+      }
+    },
+    "welcome": {
+      "subtitle": "Complete these steps to get productive quickly. (NL)",
+      "title": "Let us set up your workspace (NL)"
+    }
+  },
+  "profile": {
+    "actions": {
+      "edit": "Edit profile (NL)",
+      "primary": "",
+      "secondary": "Review profile details (NL)"
+    },
+    "cards": {
+      "card1": {
+        "description": {
+          "long": "Track profile card 1 metrics and review recent changes from your team. (NL)"
+        },
+        "title": "Profile card 1 (NL)"
+      },
+      "card2": {
+        "description": "Track profile card 2 metrics and review recent changes from your team. (NL)",
+        "title": ""
+      }
+    },
+    "completion": {
+      "message": "Your profile is {count}% complete (NL)"
+    },
+    "filters": {
+      "search": {
+        "placeholder": "Zoek profile..."
+      },
+      "sortBy": {
+        "label": "Sort by (NL)"
+      }
+    },
+    "header": {
+      "subtitle": "Manage your public details and preferences. (NL)",
+      "title": ""
+    },
+    "page": {
+      "subtitle": "Manage profile workflows with consistent team copy. (NL)",
+      "title": "Profile (NL)"
+    },
+    "sections": {
+      "activity": {
+        "title": "Recent activity (NL)"
+      },
+      "preferences": {
+        "privacyMode": "Single-use copy for sections preferences privacyMode (NL)"
+      },
+      "security": {
+        "title": ""
+      }
+    },
+    "status": {
+      "empty": "Geen profile items found yet.",
+      "loading": "Laden profile data...",
+      "success": "Profile succesvol bijgewerkt."
+    },
+    "table": {
+      "columns": {
+        "name": "Name (NL)",
+        "updatedAt": "Updated at (NL)"
+      }
+    }
+  },
+  "projects": {
+    "actions": {
+      "primary": "Opslaan projects changes",
+      "secondary": "Review projects details (NL)"
+    },
+    "archive": {
+      "unusedTemplate": ""
+    },
+    "cards": {
+      "card1": {
+        "description": "Track projects card 1 metrics and review recent changes from your team. (NL)",
+        "title": "Projecten card 1"
+      },
+      "card2": {
+        "description": "Track projects card 2 metrics and review recent changes from your team. (NL)",
+        "title": "Projecten card 2"
+      }
+    },
+    "create": {
+      "button": "",
+      "success": "Project {projectName} created (NL)"
+    },
+    "detail": {
+      "members": "Project members (NL)",
+      "timeline": "Project timeline (NL)"
+    },
+    "filters": {
+      "search": {
+        "placeholder": "Zoek projects..."
+      },
+      "sortBy": {
+        "label": ""
+      }
+    },
+    "list": {
+      "empty": "Geen projects created yet",
+      "title": "Projecten"
+    },
+    "page": {
+      "subtitle": "Manage projects workflows with consistent team copy. (NL)",
+      "title": "Projecten"
+    },
+    "status": {
+      "empty": "",
+      "loading": "Laden projects data...",
+      "success": "Projecten succesvol bijgewerkt."
+    },
+    "table": {
+      "columns": {
+        "name": "Name (NL)",
+        "updatedAt": ""
+      }
+    }
+  },
+  "reports": {
+    "actions": {
+      "primary": "Opslaan rapporten changes",
+      "secondary": "Review rapporten details"
+    },
+    "archive": {
+      "unusedLegacyChart": "Unused fixture text for rapporten.archive.unusedLegacyChart"
+    },
+    "cards": {
+      "card1": {
+        "description": "",
+        "title": "Rapports card 1"
+      },
+      "card2": {
+        "description": "Track rapporten card 2 metrics and review recent changes from your team.",
+        "title": "Rapports card 2"
+      }
+    },
+    "exports": {
+      "csv": "Export CSV (NL)",
+      "monthlyEmail": {
+        "body": ""
+      },
+      "pdf": "Export PDF (NL)"
+    },
+    "filters": {
+      "search": {
+        "placeholder": "Zoek rapporten..."
+      },
+      "sortBy": {
+        "label": "Sort by (NL)"
+      }
+    },
+    "library": {
+      "empty": "Geen rapporten created yet",
+      "title": ""
+    },
+    "page": {
+      "subtitle": "Manage rapporten workflows with consistent team copy.",
+      "title": "Rapports"
+    },
+    "schedule": {
+      "daily": "Daily schedule (NL)",
+      "weekly": "Weekly schedule (NL)"
+    },
+    "status": {
+      "empty": "",
+      "loading": "Laden rapporten data...",
+      "success": "Rapports succesvol bijgewerkt."
+    },
+    "table": {
+      "columns": {
+        "name": "Name (NL)",
+        "updatedAt": ""
+      }
+    }
+  },
+  "settings": {
+    "account": {
+      "title": "Account instellingen"
+    },
+    "actions": {
+      "primary": "Opslaan instellingen changes",
+      "secondary": "Review instellingen details"
+    },
+    "cards": {
+      "card1": {
+        "description": "",
+        "title": "Settings card 1 (NL)"
+      },
+      "card2": {
+        "description": "Track instellingen card 2 metrics and review recent changes from your team.",
+        "title": "Settings card 2 (NL)"
+      }
+    },
+    "filters": {
+      "search": {
+        "placeholder": "Zoek instellingen..."
+      },
+      "sortBy": {
+        "label": ""
+      }
+    },
+    "integrations": {
+      "github": {
+        "connected": "Single-use copy for integrations github connected (NL)"
+      }
+    },
+    "notifications": {
+      "email": "Email notifications (NL)",
+      "push": "Push notifications (NL)"
+    },
+    "page": {
+      "subtitle": {
+        "text": "Manage instellingen workflows with consistent team copy."
+      },
+      "title": ""
+    },
+    "preferences": {
+      "language": "Language (NL)",
+      "theme": "Theme (NL)"
+    },
+    "security": {
+      "twoFactor": {
+        "disable": "Disable two-factor authentication (NL)",
+        "enable": "Enable two-factor authentication (NL)"
+      }
+    },
+    "status": {
+      "empty": "",
+      "loading": "Laden instellingen data...",
+      "success": "Settings succesvol bijgewerkt."
+    },
+    "table": {
+      "columns": {
+        "name": "Name (NL)",
+        "updatedAt": ""
+      }
+    }
+  },
+  "table": {
+    "actions": {
+      "primary": "Opslaan table changes",
+      "secondary": "Review table details (NL)"
+    },
+    "bulk": {
+      "selectAllLabel": "Single-use copy for bulk selectAllLabel (NL)"
+    },
+    "cards": {
+      "card1": {
+        "description": "",
+        "title": "Table card 1 (NL)"
+      },
+      "card2": {
+        "description": "Track table card 2 metrics and review recent changes from your team. (NL)",
+        "title": "Table card 2 (NL)"
+      }
+    },
+    "empty": {
+      "description": "Try changing your filters or create a new item. (NL)",
+      "title": ""
+    },
+    "filters": {
+      "search": {
+        "placeholder": "Zoek table..."
+      },
+      "sortBy": {
+        "label": "Sort by (NL)"
+      }
+    },
+    "page": {
+      "subtitle": "Manage table workflows with consistent team copy. (NL)",
+      "title": "Table (NL)"
+    },
+    "pagination": {
+      "next": "",
+      "pageCount": "Page {current} of {total} (NL)",
+      "previous": "Previous (NL)"
+    },
+    "row": {
+      "actions": "Row actions (NL)"
+    },
+    "status": {
+      "empty": "Geen table items found yet.",
+      "loading": "",
+      "success": "Table succesvol bijgewerkt."
+    },
+    "table": {
+      "columns": {
+        "name": "Name (NL)",
+        "updatedAt": "Updated at (NL)"
+      }
+    }
+  },
+  "tasks": {
+    "actions": {
+      "complete": "Mark as complete (NL)",
+      "primary": "Opslaan tasks changes",
+      "secondary": "Review tasks details (NL)"
+    },
+    "archive": {
+      "unusedChecklist": "Unused fixture text for tasks.archive.unusedChecklist (NL)"
+    },
+    "cards": {
+      "card1": {
+        "description": "",
+        "title": "Taken card 1"
+      },
+      "card2": {
+        "description": "Track tasks card 2 metrics and review recent changes from your team. (NL)",
+        "title": "Taken card 2"
+      }
+    },
+    "detail": {
+      "assignedTo": "Assigned to {name} (NL)",
+      "title": "Task details (NL)"
+    },
+    "filters": {
+      "search": {
+        "placeholder": "Zoek tasks..."
+      },
+      "sortBy": {
+        "label": "Sort by (NL)"
+      }
+    },
+    "list": {
+      "empty": "Geen tasks assigned yet",
+      "title": ""
+    },
+    "page": {
+      "subtitle": "Manage tasks workflows with consistent team copy. (NL)",
+      "title": "Taken"
+    },
+    "status": {
+      "empty": "Geen tasks items found yet.",
+      "loading": "Laden tasks data...",
+      "success": ""
+    },
+    "table": {
+      "columns": {
+        "name": "Name (NL)",
+        "updatedAt": "Updated at (NL)"
+      }
+    }
+  },
+  "teams": {
+    "actions": {
+      "primary": "",
+      "secondary": "Review teams details (NL)"
+    },
+    "archive": {
+      "unusedRolePreset": "Unused fixture text for teams.archive.unusedRolePreset (NL)"
+    },
+    "cards": {
+      "card1": {
+        "description": "Track teams card 1 metrics and review recent changes from your team. (NL)",
+        "title": "Teams card 1 (NL)"
+      },
+      "card2": {
+        "description": "",
+        "title": "Teams card 2 (NL)"
+      }
+    },
+    "filters": {
+      "search": {
+        "placeholder": "Zoek teams..."
+      },
+      "sortBy": {
+        "label": "Sort by (NL)"
+      }
+    },
+    "invite": {
+      "button": "Invite team (NL)",
+      "success": ""
+    },
+    "overview": {
+      "members": "Leden",
+      "title": "Teams overview (NL)"
+    },
+    "page": {
+      "subtitle": "Manage teams workflows with consistent team copy. (NL)",
+      "title": "Teams (NL)"
+    },
+    "roles": {
+      "member": "",
+      "owner": "Owner (NL)"
+    },
+    "status": {
+      "empty": "Geen teams items found yet.",
+      "loading": "Laden teams data...",
+      "success": "Teams succesvol bijgewerkt."
+    },
+    "table": {
+      "columns": {
+        "name": "",
+        "updatedAt": "Updated at (NL)"
+      }
+    }
+  },
+  "validation": {
+    "actions": {
+      "primary": "Opslaan validation changes",
+      "secondary": ""
+    },
+    "cards": {
+      "card1": {
+        "description": "Track validation card 1 metrics and review recent changes from your team. (NL)",
+        "title": "Validation card 1 (NL)"
+      },
+      "card2": {
+        "description": "Track validation card 2 metrics and review recent changes from your team. (NL)",
+        "title": "Validation card 2 (NL)"
+      }
+    },
+    "email": "",
+    "filters": {
+      "search": {
+        "placeholder": "Zoek validation..."
+      },
+      "sortBy": {
+        "label": "Sort by (NL)"
+      }
+    },
+    "maxLength": "Must be less than {count} characters (NL)",
+    "minLength": "Must be at least {count} characters (NL)",
+    "page": {
+      "subtitle": "",
+      "title": "Validation (NL)"
+    },
+    "password": {
+      "mismatch": "Passwords do not match (NL)",
+      "strength": "Use upper, lower, number, and symbol (NL)"
+    },
+    "required": "Required (NL)",
+    "slugFormat": "",
+    "status": {
+      "empty": "Geen validation items found yet.",
+      "loading": "Laden validation data...",
+      "success": "Validation succesvol bijgewerkt."
+    },
+    "table": {
+      "columns": {
+        "name": "Name (NL)",
+        "updatedAt": "Updated at (NL)"
+      }
+    }
+  },
+  "common": {
+    "cancel": "Annuleren",
+    "status": "Status (NL)"
+  }
+}

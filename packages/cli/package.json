@@ -1,0 +1,43 @@
+{
+  "name": "gloss",
+  "version": "0.1.0",
+  "description": "Local-first CLI + web app for managing i18n translation files",
+  "license": "MIT",
+  "type": "module",
+  "main": "./dist/index.js",
+  "exports": {
+    ".": "./dist/index.js"
+  },
+  "bin": {
+    "gloss": "./dist/index.js"
+  },
+  "files": [
+    "dist",
+    "README.md",
+    "LICENSE"
+  ],
+  "engines": {
+    "node": ">=18"
+  },
+  "publishConfig": {
+    "access": "public"
+  },
+  "scripts": {
+    "dev": "tsx src/index.ts",
+    "dev:server": "tsx src/devServer.ts",
+    "build": "tsc -p tsconfig.json && node ./scripts/copy-ui-dist.mjs",
+    "test": "npm run build && node --test tests/**/*.test.mjs"
+  },
+  "devDependencies": {
+    "@types/cors": "^2.8.19",
+    "@types/express": "^5.0.6",
+    "@types/node": "^25.2.3",
+    "@types/open": "^6.1.0",
+    "tsx": "^4.21.0"
+  },
+  "dependencies": {
+    "cors": "^2.8.6",
+    "express": "^5.2.1",
+    "open": "^11.0.0"
+  }
+}

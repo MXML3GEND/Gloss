@@ -1,0 +1,1119 @@
+{
+  "admin": {
+    "actions": {
+      "primary": "Save admin changes",
+      "secondary": "Review admin details"
+    },
+    "audit": {
+      "export": "Export audit log",
+      "exportDisclaimer": "Audit exports may contain personal data.\nEnsure compliance with your internal retention and access policy before sharing outside your organization.",
+      "title": "Audit log"
+    },
+    "cards": {
+      "card1": {
+        "description": "Track admin card 1 metrics and review recent changes from your team.",
+        "title": "Admin card 1"
+      },
+      "card2": {
+        "description": "Track admin card 2 metrics and review recent changes from your team.",
+        "title": "Admin card 2"
+      }
+    },
+    "experimental": {
+      "unusedFeature01": "Unused fixture text for admin.experimental.unusedFeature01",
+      "unusedFeature02": "Unused fixture text for admin.experimental.unusedFeature02",
+      "unusedFeature03": "Unused fixture text for admin.experimental.unusedFeature03",
+      "unusedFeature04": "Unused fixture text for admin.experimental.unusedFeature04",
+      "unusedFeature05": "Unused fixture text for admin.experimental.unusedFeature05",
+      "unusedFeature06": "Unused fixture text for admin.experimental.unusedFeature06",
+      "unusedFeature07": "Unused fixture text for admin.experimental.unusedFeature07",
+      "unusedFeature08": "Unused fixture text for admin.experimental.unusedFeature08"
+    },
+    "filters": {
+      "search": {
+        "placeholder": "Search admin..."
+      },
+      "sortBy": {
+        "label": "Sort by"
+      }
+    },
+    "flags": {
+      "enable": "Enable feature flag"
+    },
+    "page": {
+      "subtitle": "Manage admin workflows with consistent team copy.",
+      "title": "Admin"
+    },
+    "roles": {
+      "assign": "Assign role",
+      "title": "Roles and permissions"
+    },
+    "status": {
+      "empty": "No admin items found yet.",
+      "loading": "Loading admin data...",
+      "success": "Admin updated successfully."
+    },
+    "table": {
+      "columns": {
+        "name": "Name",
+        "updatedAt": "Updated at"
+      }
+    },
+    "users": {
+      "add": "Add user",
+      "title": "User management"
+    }
+  },
+  "analytics": {
+    "actions": {
+      "primary": "Save analytics changes",
+      "secondary": "Review analytics details"
+    },
+    "cards": {
+      "card1": {
+        "description": "Track analytics card 1 metrics and review recent changes from your team.",
+        "title": "Analytics card 1"
+      },
+      "card2": {
+        "description": "Track analytics card 2 metrics and review recent changes from your team.",
+        "title": "Analytics card 2"
+      }
+    },
+    "charts": {
+      "engagement": "Engagement trend",
+      "revenue": "Revenue trend"
+    },
+    "filters": {
+      "search": {
+        "placeholder": "Search analytics..."
+      },
+      "sortBy": {
+        "label": "Sort by"
+      }
+    },
+    "kpi": {
+      "activeUsers": "Active users",
+      "churnRate": "Churn rate",
+      "newSignups": "New signups",
+      "timeToValue": "Single-use copy for kpi timeToValue"
+    },
+    "overview": {
+      "title": "Analytics overview"
+    },
+    "page": {
+      "subtitle": "Manage analytics workflows with consistent team copy.",
+      "title": "Analytics"
+    },
+    "status": {
+      "empty": "No analytics items found yet.",
+      "loading": "Loading analytics data...",
+      "success": "Analytics updated successfully."
+    },
+    "table": {
+      "columns": {
+        "name": "Name",
+        "updatedAt": "Updated at"
+      }
+    }
+  },
+  "auth": {
+    "actions": {
+      "primary": "Save authentication changes",
+      "secondary": "Review authentication details"
+    },
+    "cards": {
+      "card1": {
+        "description": "Track authentication card 1 metrics and review recent changes from your team.",
+        "title": "Authentication card 1"
+      },
+      "card2": {
+        "description": "Track authentication card 2 metrics and review recent changes from your team.",
+        "title": "Authentication card 2"
+      }
+    },
+    "filters": {
+      "search": {
+        "placeholder": "Search authentication..."
+      },
+      "sortBy": {
+        "label": "Sort by"
+      }
+    },
+    "login": {
+      "emailLabel": "Email address",
+      "forgotPassword": "Forgot password?",
+      "greeting": "Hello {name}",
+      "passwordLabel": "Password",
+      "sessionRestoredHint": "Single-use copy for login sessionRestoredHint",
+      "submit": "Sign in",
+      "subtitle": "Sign in to continue to your workspace.",
+      "successBanner": "You are now signed in.",
+      "title": "Welcome back",
+      "test": "Single-use copy for login test"
+    },
+    "page": {
+      "subtitle": "Manage authentication workflows with consistent team copy.",
+      "title": "Authentication"
+    },
+    "status": {
+      "empty": "No authentication items found yet.",
+      "loading": "Loading authentication data...",
+      "success": "Authentication updated successfully."
+    },
+    "table": {
+      "columns": {
+        "name": "Name",
+        "updatedAt": "Updated at"
+      }
+    }
+  },
+  "billing": {
+    "actions": {
+      "primary": "Save billing changes",
+      "secondary": "Review billing details"
+    },
+    "cards": {
+      "card1": {
+        "description": "Track billing card 1 metrics and review recent changes from your team.",
+        "title": "Billing card 1"
+      },
+      "card2": {
+        "description": "Track billing card 2 metrics and review recent changes from your team.",
+        "title": "Billing card 2"
+      }
+    },
+    "filters": {
+      "search": {
+        "placeholder": "Search billing..."
+      },
+      "sortBy": {
+        "label": "Sort by"
+      }
+    },
+    "invoice": {
+      "download": "Download invoice",
+      "legalNotice": "Legal notice:\nPayment is due within 14 days.\nLate fees may apply according to your service agreement.\nContact finance@gloss.dev for disputes.",
+      "statusPaid": "Paid",
+      "statusPending": "Pending",
+      "vatExplanation": "Single-use copy for invoice vatExplanation"
+    },
+    "overview": {
+      "title": "Billing overview"
+    },
+    "page": {
+      "subtitle": "Manage billing workflows with consistent team copy.",
+      "title": "Billing"
+    },
+    "paymentMethod": {
+      "addCard": "Add payment method"
+    },
+    "status": {
+      "empty": "No billing items found yet.",
+      "loading": "Loading billing data...",
+      "success": "Billing updated successfully."
+    },
+    "summary": {
+      "balanceDue": "{name}, your balance due is {amount}"
+    },
+    "table": {
+      "columns": {
+        "name": "Name",
+        "updatedAt": "Updated at"
+      }
+    },
+    "trial": {
+      "endsSoon": "Your trial ends in {count} days"
+    }
+  },
+  "dashboard": {
+    "actions": {
+      "primary": "Save dashboard changes",
+      "secondary": "Review dashboard details"
+    },
+    "cards": {
+      "card1": {
+        "description": "Track dashboard card 1 metrics and review recent changes from your team.",
+        "title": "Dashboard card 1"
+      },
+      "card2": {
+        "description": "Track dashboard card 2 metrics and review recent changes from your team.",
+        "title": "Dashboard card 2"
+      }
+    },
+    "filters": {
+      "search": {
+        "placeholder": "Search dashboard..."
+      },
+      "sortBy": {
+        "label": "Sort by"
+      }
+    },
+    "header": {
+      "welcome": "Welcome to your dashboard"
+    },
+    "page": {
+      "subtitle": "Manage dashboard workflows with consistent team copy.",
+      "title": "Dashboard"
+    },
+    "panels": {
+      "performanceInsight": "Single-use copy for panels performanceInsight"
+    },
+    "quickActions": {
+      "inviteMember": "Invite member",
+      "newProject": "Create project"
+    },
+    "stats": {
+      "activeProjects": "Active projects",
+      "retentionRate": "Retention rate",
+      "totalRevenue": "Total revenue",
+      "totalUsers": "Total users"
+    },
+    "status": {
+      "empty": "No dashboard items found yet.",
+      "loading": "Loading dashboard data...",
+      "success": "Dashboard updated successfully."
+    },
+    "table": {
+      "columns": {
+        "name": "Name",
+        "updatedAt": "Updated at"
+      }
+    }
+  },
+  "errors": {
+    "actions": {
+      "primary": "Save errors changes",
+      "secondary": "Review errors details"
+    },
+    "cards": {
+      "card1": {
+        "description": "Track errors card 1 metrics and review recent changes from your team.",
+        "title": "Errors card 1"
+      },
+      "card2": {
+        "description": "Track errors card 2 metrics and review recent changes from your team.",
+        "title": "Errors card 2"
+      }
+    },
+    "filters": {
+      "search": {
+        "placeholder": "Search errors..."
+      },
+      "sortBy": {
+        "label": "Sort by"
+      }
+    },
+    "forms": {
+      "invalidEmail": "Enter a valid email address.",
+      "required": "This field is required."
+    },
+    "network": {
+      "offline": "You appear to be offline.",
+      "retrying": "Single-use copy for network retrying",
+      "timeout": "Network timeout. Please try again."
+    },
+    "page": {
+      "subtitle": "Manage errors workflows with consistent team copy.",
+      "title": "Errors"
+    },
+    "permissions": {
+      "denied": "You do not have permission to do that."
+    },
+    "server": {
+      "unavailable": "Service is temporarily unavailable."
+    },
+    "status": {
+      "empty": "No errors items found yet.",
+      "loading": "Loading errors data...",
+      "success": "Errors updated successfully."
+    },
+    "table": {
+      "columns": {
+        "name": "Name",
+        "updatedAt": "Updated at"
+      }
+    }
+  },
+  "filters": {
+    "actions": {
+      "primary": "Save filters changes",
+      "secondary": "Review filters details"
+    },
+    "cards": {
+      "card1": {
+        "description": "Track filters card 1 metrics and review recent changes from your team.",
+        "title": "Filters card 1"
+      },
+      "card2": {
+        "description": "Track filters card 2 metrics and review recent changes from your team.",
+        "title": "Filters card 2"
+      }
+    },
+    "filters": {
+      "search": {
+        "placeholder": "Search filters..."
+      },
+      "sortBy": {
+        "label": "Sort by"
+      }
+    },
+    "owner": {
+      "assignedToMe": "Assigned to me"
+    },
+    "page": {
+      "subtitle": "Manage filters workflows with consistent team copy.",
+      "title": "Filters"
+    },
+    "quick": {
+      "thisMonth": "This month",
+      "thisWeek": "This week",
+      "today": "Today"
+    },
+    "status": {
+      "closed": "Closed",
+      "empty": "No filters items found yet.",
+      "loading": "Loading filters data...",
+      "open": "Open",
+      "success": "Filters updated successfully."
+    },
+    "table": {
+      "columns": {
+        "name": "Name",
+        "updatedAt": "Updated at"
+      }
+    },
+    "tags": {
+      "includeArchived": "Single-use copy for tags includeArchived"
+    }
+  },
+  "forms": {
+    "actions": {
+      "primary": "Save forms changes",
+      "secondary": "Review forms details"
+    },
+    "cards": {
+      "card1": {
+        "description": "Track forms card 1 metrics and review recent changes from your team.",
+        "title": "Forms card 1"
+      },
+      "card2": {
+        "description": "Track forms card 2 metrics and review recent changes from your team.",
+        "title": "Forms card 2"
+      }
+    },
+    "common": {
+      "reset": "Reset",
+      "submit": "Submit"
+    },
+    "contact": {
+      "emailLabel": "Email",
+      "messageLabel": "Message",
+      "nameLabel": "Full name",
+      "placeholder": "Write your message here..."
+    },
+    "feedback": {
+      "satisfactionLabel": "Single-use copy for feedback satisfactionLabel"
+    },
+    "filters": {
+      "search": {
+        "placeholder": "Search forms..."
+      },
+      "sortBy": {
+        "label": "Sort by"
+      }
+    },
+    "page": {
+      "subtitle": "Manage forms workflows with consistent team copy.",
+      "title": "Forms"
+    },
+    "status": {
+      "empty": "No forms items found yet.",
+      "loading": "Loading forms data...",
+      "success": "Forms updated successfully."
+    },
+    "table": {
+      "columns": {
+        "name": "Name",
+        "updatedAt": "Updated at"
+      }
+    }
+  },
+  "marketing": {
+    "actions": {
+      "primary": "Save marketing changes",
+      "secondary": "Review marketing details"
+    },
+    "archive": {
+      "unusedLandingA": "Unused fixture text for marketing.archive.unusedLandingA",
+      "unusedLandingB": "Unused fixture text for marketing.archive.unusedLandingB"
+    },
+    "campaigns": {
+      "springLaunch": {
+        "longDescription": "Spring Launch Campaign\n\nCoordinate the campaign assets, approval deadlines, and localization checkpoints across product marketing, growth, and lifecycle teams.\n\nMake sure each locale has final legal review before publication."
+      }
+    },
+    "cards": {
+      "card1": {
+        "description": "Track marketing card 1 metrics and review recent changes from your team.",
+        "title": "Marketing card 1"
+      },
+      "card2": {
+        "description": "Track marketing card 2 metrics and review recent changes from your team.",
+        "title": "Marketing card 2"
+      }
+    },
+    "cta": {
+      "bookDemo": "Book a demo",
+      "startTrial": "Start free trial"
+    },
+    "faq": {
+      "answer": "Reach out to support for custom implementation guidance.",
+      "title": "Frequently asked questions"
+    },
+    "filters": {
+      "search": {
+        "placeholder": "Search marketing..."
+      },
+      "sortBy": {
+        "label": "Sort by"
+      }
+    },
+    "hero": {
+      "subtitle": "Gloss keeps teams aligned while shipping multilingual products.",
+      "title": "Build software faster with better translation workflows"
+    },
+    "page": {
+      "subtitle": "Manage marketing workflows with consistent team copy.",
+      "title": "Marketing"
+    },
+    "pricing": {
+      "enterpriseBanner": "Single-use copy for pricing enterpriseBanner"
+    },
+    "status": {
+      "empty": "No marketing items found yet.",
+      "loading": "Loading marketing data...",
+      "success": "Marketing updated successfully."
+    },
+    "table": {
+      "columns": {
+        "name": "Name",
+        "updatedAt": "Updated at"
+      }
+    },
+    "testimonials": {
+      "title": "Teams that trust Gloss"
+    }
+  },
+  "modals": {
+    "actions": {
+      "primary": "Save modals changes",
+      "secondary": "Review modals details"
+    },
+    "archiveProject": {
+      "confirmText": "Single-use copy for archiveProject confirmText"
+    },
+    "cards": {
+      "card1": {
+        "description": "Track modals card 1 metrics and review recent changes from your team.",
+        "title": "Modals card 1"
+      },
+      "card2": {
+        "description": "Track modals card 2 metrics and review recent changes from your team.",
+        "title": "Modals card 2"
+      }
+    },
+    "deleteProject": {
+      "body": "This action cannot be undone and removes all project data.",
+      "title": "Delete project?"
+    },
+    "filters": {
+      "search": {
+        "placeholder": "Search modals..."
+      },
+      "sortBy": {
+        "label": "Sort by"
+      }
+    },
+    "inviteTeam": {
+      "body": "Send invites now and assign roles after they join.",
+      "title": "Invite team members"
+    },
+    "page": {
+      "subtitle": "Manage modals workflows with consistent team copy.",
+      "title": "Modals"
+    },
+    "status": {
+      "empty": "No modals items found yet.",
+      "loading": "Loading modals data...",
+      "success": "Modals updated successfully."
+    },
+    "table": {
+      "columns": {
+        "name": "Name",
+        "updatedAt": "Updated at"
+      }
+    },
+    "upgradePlan": {
+      "body": "Unlock advanced analytics, automation, and unlimited projects.",
+      "title": "Upgrade plan"
+    }
+  },
+  "notifications": {
+    "actions": {
+      "primary": "Save notifications changes",
+      "secondary": "Review notifications details"
+    },
+    "banner": {
+      "saved": "Notification preferences saved."
+    },
+    "cards": {
+      "card1": {
+        "description": "Track notifications card 1 metrics and review recent changes from your team.",
+        "title": "Notifications card 1"
+      },
+      "card2": {
+        "description": "Track notifications card 2 metrics and review recent changes from your team.",
+        "title": "Notifications card 2"
+      }
+    },
+    "center": {
+      "empty": "You are all caught up.",
+      "title": "Notification center"
+    },
+    "filters": {
+      "search": {
+        "placeholder": "Search notifications..."
+      },
+      "sortBy": {
+        "label": "Sort by"
+      }
+    },
+    "inbox": {
+      "unread": "You have {count} messages"
+    },
+    "page": {
+      "subtitle": "Manage notifications workflows with consistent team copy.",
+      "title": "Notifications"
+    },
+    "preferences": {
+      "email": "Email alerts",
+      "push": "Push alerts",
+      "soundLabel": "Single-use copy for preferences soundLabel"
+    },
+    "status": {
+      "empty": "No notifications items found yet.",
+      "loading": "Loading notifications data...",
+      "success": "Notifications updated successfully."
+    },
+    "table": {
+      "columns": {
+        "name": "Name",
+        "updatedAt": "Updated at"
+      }
+    }
+  },
+  "onboarding": {
+    "actions": {
+      "primary": "Save onboarding changes",
+      "secondary": "Review onboarding details"
+    },
+    "cards": {
+      "card1": {
+        "description": "Track onboarding card 1 metrics and review recent changes from your team.",
+        "title": "Onboarding card 1"
+      },
+      "card2": {
+        "description": "Track onboarding card 2 metrics and review recent changes from your team.",
+        "title": "Onboarding card 2"
+      }
+    },
+    "filters": {
+      "search": {
+        "placeholder": "Search onboarding..."
+      },
+      "sortBy": {
+        "label": "Sort by"
+      }
+    },
+    "guide": {
+      "welcomeNarrative": "Welcome to Gloss.\n\nStep 1: Connect your repository and import translation files.\nStep 2: Invite collaborators and define review flow.\nStep 3: Publish changes and monitor translation quality over time."
+    },
+    "page": {
+      "subtitle": "Manage onboarding workflows with consistent team copy.",
+      "title": "Onboarding"
+    },
+    "status": {
+      "empty": "No onboarding items found yet.",
+      "loading": "Loading onboarding data...",
+      "success": "Onboarding updated successfully."
+    },
+    "steps": {
+      "done": {
+        "message": "Setup complete. You are ready to go."
+      },
+      "profile": {
+        "title": "Complete your profile"
+      },
+      "project": {
+        "title": "Create your first project"
+      },
+      "security": {
+        "title": "Single-use copy for steps security title"
+      },
+      "team": {
+        "title": "Invite your team"
+      }
+    },
+    "table": {
+      "columns": {
+        "name": "Name",
+        "updatedAt": "Updated at"
+      }
+    },
+    "welcome": {
+      "subtitle": "Complete these steps to get productive quickly.",
+      "title": "Let us set up your workspace"
+    }
+  },
+  "profile": {
+    "actions": {
+      "edit": "Edit profile",
+      "primary": "Save profile changes",
+      "secondary": "Review profile details"
+    },
+    "cards": {
+      "card1": {
+        "description": "Track profile card 1 metrics and review recent changes from your team.",
+        "title": "Profile card 1"
+      },
+      "card2": {
+        "description": "Track profile card 2 metrics and review recent changes from your team.",
+        "title": "Profile card 2"
+      }
+    },
+    "completion": {
+      "message": "Your profile is {count}% complete"
+    },
+    "filters": {
+      "search": {
+        "placeholder": "Search profile..."
+      },
+      "sortBy": {
+        "label": "Sort by"
+      }
+    },
+    "header": {
+      "subtitle": "Manage your public details and preferences.",
+      "title": "Your profile"
+    },
+    "page": {
+      "subtitle": "Manage profile workflows with consistent team copy.",
+      "title": "Profile"
+    },
+    "sections": {
+      "activity": {
+        "title": "Recent activity"
+      },
+      "preferences": {
+        "privacyMode": "Single-use copy for sections preferences privacyMode"
+      },
+      "security": {
+        "title": "Security settings"
+      }
+    },
+    "status": {
+      "empty": "No profile items found yet.",
+      "loading": "Loading profile data...",
+      "success": "Profile updated successfully."
+    },
+    "table": {
+      "columns": {
+        "name": "Name",
+        "updatedAt": "Updated at"
+      }
+    }
+  },
+  "projects": {
+    "actions": {
+      "primary": "Save projects changes",
+      "secondary": "Review projects details"
+    },
+    "archive": {
+      "unusedTemplate": "Unused fixture text for projects.archive.unusedTemplate"
+    },
+    "cards": {
+      "card1": {
+        "description": "Track projects card 1 metrics and review recent changes from your team.",
+        "title": "Projects card 1"
+      },
+      "card2": {
+        "description": "Track projects card 2 metrics and review recent changes from your team.",
+        "title": "Projects card 2"
+      }
+    },
+    "create": {
+      "button": "Create project",
+      "success": "Project {projectName} created"
+    },
+    "detail": {
+      "members": "Project members",
+      "timeline": "Project timeline"
+    },
+    "filters": {
+      "search": {
+        "placeholder": "Search projects..."
+      },
+      "sortBy": {
+        "label": "Sort by"
+      }
+    },
+    "list": {
+      "empty": "No projects created yet",
+      "title": "Projects"
+    },
+    "page": {
+      "subtitle": "Manage projects workflows with consistent team copy.",
+      "title": "Projects"
+    },
+    "status": {
+      "empty": "No projects items found yet.",
+      "loading": "Loading projects data...",
+      "success": "Projects updated successfully."
+    },
+    "table": {
+      "columns": {
+        "name": "Name",
+        "updatedAt": "Updated at"
+      }
+    }
+  },
+  "reports": {
+    "actions": {
+      "primary": "Save reports changes",
+      "secondary": "Review reports details"
+    },
+    "archive": {
+      "unusedLegacyChart": "Unused fixture text for reports.archive.unusedLegacyChart"
+    },
+    "cards": {
+      "card1": {
+        "description": "Track reports card 1 metrics and review recent changes from your team.",
+        "title": "Reports card 1"
+      },
+      "card2": {
+        "description": "Track reports card 2 metrics and review recent changes from your team.",
+        "title": "Reports card 2"
+      }
+    },
+    "exports": {
+      "csv": "Export CSV",
+      "monthlyEmail": {
+        "body": "Hello {name},\n\nYour monthly report is ready.\nOpen the attached file to review KPIs, translation progress, and unresolved issues.\n\nRegards,\nGloss Team"
+      },
+      "pdf": "Export PDF"
+    },
+    "filters": {
+      "search": {
+        "placeholder": "Search reports..."
+      },
+      "sortBy": {
+        "label": "Sort by"
+      }
+    },
+    "library": {
+      "empty": "No reports created yet",
+      "title": "Report library"
+    },
+    "page": {
+      "subtitle": "Manage reports workflows with consistent team copy.",
+      "title": "Reports"
+    },
+    "schedule": {
+      "daily": "Daily schedule",
+      "weekly": "Weekly schedule"
+    },
+    "status": {
+      "empty": "No reports items found yet.",
+      "loading": "Loading reports data...",
+      "success": "Reports updated successfully."
+    },
+    "table": {
+      "columns": {
+        "name": "Name",
+        "updatedAt": "Updated at"
+      }
+    }
+  },
+  "settings": {
+    "account": {
+      "title": "Account settings"
+    },
+    "actions": {
+      "primary": "Save settings changes",
+      "secondary": "Review settings details"
+    },
+    "cards": {
+      "card1": {
+        "description": "Track settings card 1 metrics and review recent changes from your team.",
+        "title": "Settings card 1"
+      },
+      "card2": {
+        "description": "Track settings card 2 metrics and review recent changes from your team.",
+        "title": "Settings card 2"
+      }
+    },
+    "filters": {
+      "search": {
+        "placeholder": "Search settings..."
+      },
+      "sortBy": {
+        "label": "Sort by"
+      }
+    },
+    "integrations": {
+      "github": {
+        "connected": "Single-use copy for integrations github connected"
+      }
+    },
+    "notifications": {
+      "email": "Email notifications",
+      "push": "Push notifications"
+    },
+    "page": {
+      "subtitle": "Manage settings workflows with consistent team copy.",
+      "title": "Settings"
+    },
+    "preferences": {
+      "language": "Language",
+      "theme": "Theme"
+    },
+    "security": {
+      "twoFactor": {
+        "disable": "Disable two-factor authentication",
+        "enable": "Enable two-factor authentication"
+      }
+    },
+    "status": {
+      "empty": "No settings items found yet.",
+      "loading": "Loading settings data...",
+      "success": "Settings updated successfully."
+    },
+    "table": {
+      "columns": {
+        "name": "Name",
+        "updatedAt": "Updated at"
+      }
+    }
+  },
+  "table": {
+    "actions": {
+      "primary": "Save table changes",
+      "secondary": "Review table details"
+    },
+    "bulk": {
+      "selectAllLabel": "Single-use copy for bulk selectAllLabel"
+    },
+    "cards": {
+      "card1": {
+        "description": "Track table card 1 metrics and review recent changes from your team.",
+        "title": "Table card 1"
+      },
+      "card2": {
+        "description": "Track table card 2 metrics and review recent changes from your team.",
+        "title": "Table card 2"
+      }
+    },
+    "empty": {
+      "description": "Try changing your filters or create a new item.",
+      "title": "No rows available"
+    },
+    "filters": {
+      "search": {
+        "placeholder": "Search table..."
+      },
+      "sortBy": {
+        "label": "Sort by"
+      }
+    },
+    "page": {
+      "subtitle": "Manage table workflows with consistent team copy.",
+      "title": "Table"
+    },
+    "pagination": {
+      "next": "Next",
+      "pageCount": "Page {current} of {total}",
+      "previous": "Previous"
+    },
+    "row": {
+      "actions": "Row actions"
+    },
+    "status": {
+      "empty": "No table items found yet.",
+      "loading": "Loading table data...",
+      "success": "Table updated successfully."
+    },
+    "table": {
+      "columns": {
+        "name": "Name",
+        "updatedAt": "Updated at"
+      }
+    }
+  },
+  "tasks": {
+    "actions": {
+      "complete": "Mark as complete",
+      "primary": "Save tasks changes",
+      "secondary": "Review tasks details"
+    },
+    "archive": {
+      "unusedChecklist": "Unused fixture text for tasks.archive.unusedChecklist"
+    },
+    "cards": {
+      "card1": {
+        "description": "Track tasks card 1 metrics and review recent changes from your team.",
+        "title": "Tasks card 1"
+      },
+      "card2": {
+        "description": "Track tasks card 2 metrics and review recent changes from your team.",
+        "title": "Tasks card 2"
+      }
+    },
+    "detail": {
+      "assignedTo": "Assigned to {name}",
+      "title": "Task details"
+    },
+    "filters": {
+      "search": {
+        "placeholder": "Search tasks..."
+      },
+      "sortBy": {
+        "label": "Sort by"
+      }
+    },
+    "list": {
+      "empty": "No tasks assigned yet",
+      "title": "Tasks"
+    },
+    "page": {
+      "subtitle": "Manage tasks workflows with consistent team copy.",
+      "title": "Tasks"
+    },
+    "status": {
+      "empty": "No tasks items found yet.",
+      "loading": "Loading tasks data...",
+      "success": "Tasks updated successfully."
+    },
+    "table": {
+      "columns": {
+        "name": "Name",
+        "updatedAt": "Updated at"
+      }
+    }
+  },
+  "teams": {
+    "actions": {
+      "primary": "Save teams changes",
+      "secondary": "Review teams details"
+    },
+    "archive": {
+      "unusedRolePreset": "Unused fixture text for teams.archive.unusedRolePreset"
+    },
+    "cards": {
+      "card1": {
+        "description": "Track teams card 1 metrics and review recent changes from your team.",
+        "title": "Teams card 1"
+      },
+      "card2": {
+        "description": "Track teams card 2 metrics and review recent changes from your team.",
+        "title": "Teams card 2"
+      }
+    },
+    "filters": {
+      "search": {
+        "placeholder": "Search teams..."
+      },
+      "sortBy": {
+        "label": "Sort by"
+      }
+    },
+    "invite": {
+      "button": "Invite team",
+      "success": "Invites sent successfully"
+    },
+    "overview": {
+      "members": "Members",
+      "title": "Teams overview"
+    },
+    "page": {
+      "subtitle": "Manage teams workflows with consistent team copy.",
+      "title": "Teams"
+    },
+    "roles": {
+      "member": "Member",
+      "owner": "Owner"
+    },
+    "status": {
+      "empty": "No teams items found yet.",
+      "loading": "Loading teams data...",
+      "success": "Teams updated successfully."
+    },
+    "table": {
+      "columns": {
+        "name": "Name",
+        "updatedAt": "Updated at"
+      }
+    }
+  },
+  "validation": {
+    "actions": {
+      "primary": "Save validation changes",
+      "secondary": "Review validation details"
+    },
+    "cards": {
+      "card1": {
+        "description": "Track validation card 1 metrics and review recent changes from your team.",
+        "title": "Validation card 1"
+      },
+      "card2": {
+        "description": "Track validation card 2 metrics and review recent changes from your team.",
+        "title": "Validation card 2"
+      }
+    },
+    "email": "Enter a valid email address",
+    "filters": {
+      "search": {
+        "placeholder": "Search validation..."
+      },
+      "sortBy": {
+        "label": "Sort by"
+      }
+    },
+    "maxLength": "Must be less than {count} characters",
+    "minLength": "Must be at least {count} characters",
+    "page": {
+      "subtitle": "Manage validation workflows with consistent team copy.",
+      "title": "Validation"
+    },
+    "password": {
+      "mismatch": "Passwords do not match",
+      "strength": "Use upper, lower, number, and symbol"
+    },
+    "required": "Required",
+    "slugFormat": "Single-use copy for slugFormat",
+    "status": {
+      "empty": "No validation items found yet.",
+      "loading": "Loading validation data...",
+      "success": "Validation updated successfully."
+    },
+    "table": {
+      "columns": {
+        "name": "Name",
+        "updatedAt": "Updated at"
+      }
+    }
+  },
+  "common": {
+    "cancel": "Cancel",
+    "status": "Status"
+  }
+}
