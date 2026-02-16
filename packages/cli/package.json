@@ -8,9 +8,7 @@
   "exports": {
     ".": "./dist/index.js"
   },
-  "bin": {
-    "gloss": "./dist/index.js"
-  },
+  "bin": "./dist/index.js",
   "files": [
     "dist",
     "README.md",
