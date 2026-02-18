@@ -48,6 +48,7 @@ const config = {
     exclude: ["**/*.test.*", "**/*.stories.*", "**/__mocks__/**"],
     mode: "regex", // optional: "ast" for strict AST usage scanning
   },
+  strictPlaceholders: true, // default: true; set false to downgrade placeholder mismatches to warnings
 };
 
 export default config;
@@ -70,10 +71,15 @@ module.exports = {
 gloss --help
 gloss --version
 gloss --no-open
+gloss --no-cache
 gloss --port 5179
 gloss check --format json
+gloss check --no-cache
+gloss cache status
+gloss cache clear
 gloss gen-types --out src/types/i18n-keys.d.ts
 gloss open key auth.login.title
+npm run test:perf
 ```
 
 ## Local development

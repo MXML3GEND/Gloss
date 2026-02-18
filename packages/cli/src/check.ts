@@ -1,6 +1,7 @@
 import fs from "node:fs/promises";
 import path from "node:path";
 import type { GlossConfig } from "@gloss/shared";
+import type { IssueBaselineReport } from "./baseline.js";
 import { readAllTranslations } from "./fs.js";
 import { createScanMatcher } from "./scanFilters.js";
 import { flattenObject } from "./translationTree.js";
@@ -48,16 +49,25 @@ export type HardcodedTextIssue = {
 };
 
 export type GlossCheckResult = {
+  schemaVersion: 1;
+  status: "pass" | "fail";
   ok: boolean;
   generatedAt: string;
   rootDir: string;
   locales: string[];
+  policy: {
+    failOn: string[];
+    warnOn: string[];
+  };
   summary: {
     missingTranslations: number;
     orphanKeys: number;
     invalidKeys: number;
     placeholderMismatches: number;
     hardcodedTexts: number;
+    suppressedHardcodedTexts: number;
+    errorIssues: number;
+    warningIssues: number;
     totalIssues: number;
   };
   missingTranslations: MissingTranslationIssue[];
@@ -91,8 +101,36 @@ const ICU_PLACEHOLDER_REGEX =
   /\{([A-Za-z_][A-Za-z0-9_]*)\s*,\s*(plural|select|selectordinal)\s*,/g;
 const ICU_PLURAL_START_REGEX = /\{([A-Za-z_][A-Za-z0-9_]*)\s*,\s*plural\s*,/g;
 const ICU_CATEGORY_REGEX = /(?:^|[\s,])(=?\d+|zero|one|two|few|many|other)\s*\{/g;
+const HARDCODED_IGNORE_MARKER = "gloss-ignore";
+const CHECK_ALWAYS_FAIL_ON = ["missingTranslations", "invalidKeys"] as const;
+const CHECK_ALWAYS_WARN_ON = ["orphanKeys", "hardcodedTexts"] as const;
 
 const projectRoot = () => process.env.INIT_CWD || process.cwd();
+
+type CheckSummaryCategory =
+  | "missingTranslations"
+  | "orphanKeys"
+  | "invalidKeys"
+  | "placeholderMismatches"
+  | "hardcodedTexts";
+
+const getCheckPolicy = (cfg: GlossConfig) => {
+  const strictPlaceholders = cfg.strictPlaceholders !== false;
+  const failOn: CheckSummaryCategory[] = [...CHECK_ALWAYS_FAIL_ON];
+  const warnOn: CheckSummaryCategory[] = [...CHECK_ALWAYS_WARN_ON];
+
+  if (strictPlaceholders) {
+    failOn.push("placeholderMismatches");
+  } else {
+    warnOn.push("placeholderMismatches");
+  }
+
+  return {
+    strictPlaceholders,
+    failOn,
+    warnOn,
+  };
+};
 
 const normalizePath = (filePath: string) => filePath.split(path.sep).join("/");
 
@@ -114,9 +152,9 @@ const hasIgnoredPathSegment = (relativePath: string) =>
     .split("/")
     .some((segment) => HARDCODED_IGNORED_DIRECTORIES.has(segment));
 
-const isLikelyHardcodedText = (value: string) => {
+const isLikelyHardcodedText = (value: string, minLength: number) => {
   const text = withCollapsedWhitespace(value);
-  if (text.length < 3) {
+  if (text.length < minLength) {
     return false;
   }
 
@@ -247,10 +285,44 @@ const extractPluralCategories = (value: string) => {
 const scanHardcodedText = async (
   rootDir: string,
   cfg: GlossConfig,
-): Promise<HardcodedTextIssue[]> => {
+): Promise<{ issues: HardcodedTextIssue[]; suppressedCount: number }> => {
   const issues: HardcodedTextIssue[] = [];
   const seen = new Set<string>();
   const shouldScanFile = createScanMatcher(cfg.scan);
+  const hardcodedConfig = cfg.hardcodedText ?? {
+    enabled: true,
+    minLength: 3,
+    excludePatterns: [],
+  };
+
+  if (hardcodedConfig.enabled === false) {
+    return { issues, suppressedCount: 0 };
+  }
+
+  const minLength =
+    typeof hardcodedConfig.minLength === "number" &&
+    Number.isFinite(hardcodedConfig.minLength) &&
+    hardcodedConfig.minLength >= 1
+      ? hardcodedConfig.minLength
+      : 3;
+  const excludeMatchers = (hardcodedConfig.excludePatterns ?? [])
+    .map((pattern) => pattern.trim())
+    .filter((pattern) => pattern.length > 0)
+    .map((pattern) => new RegExp(pattern));
+  let suppressedCount = 0;
+
+  const isSuppressed = (text: string, line: number, lines: string[]) => {
+    const currentLine = lines[line - 1] ?? "";
+    const previousLine = lines[line - 2] ?? "";
+    if (
+      currentLine.includes(HARDCODED_IGNORE_MARKER) ||
+      previousLine.includes(HARDCODED_IGNORE_MARKER)
+    ) {
+      return true;
+    }
+
+    return excludeMatchers.some((matcher) => matcher.test(text));
+  };
 
   const visitDirectory = async (directory: string): Promise<void> => {
     const entries = await fs.readdir(directory, { withFileTypes: true });
@@ -280,12 +352,18 @@ const scanHardcodedText = async (
       }
 
       const source = await fs.readFile(fullPath, "utf8");
+      const lines = source.split("\n");
 
       let textMatch: RegExpExecArray | null = JSX_TEXT_REGEX.exec(source);
       while (textMatch) {
         const text = withCollapsedWhitespace(textMatch[1]);
-        if (isLikelyHardcodedText(text)) {
+        if (isLikelyHardcodedText(text, minLength)) {
           const line = lineNumberAtIndex(source, textMatch.index);
+          if (isSuppressed(text, line, lines)) {
+            suppressedCount += 1;
+            textMatch = JSX_TEXT_REGEX.exec(source);
+            continue;
+          }
           const dedupeKey = `${relativePath}:${line}:jsx_text:${text}`;
           if (!seen.has(dedupeKey)) {
             seen.add(dedupeKey);
@@ -300,8 +378,13 @@ const scanHardcodedText = async (
       let attrMatch: RegExpExecArray | null = JSX_ATTRIBUTE_REGEX.exec(source);
       while (attrMatch) {
         const text = withCollapsedWhitespace(attrMatch[1]);
-        if (isLikelyHardcodedText(text)) {
+        if (isLikelyHardcodedText(text, minLength)) {
           const line = lineNumberAtIndex(source, attrMatch.index);
+          if (isSuppressed(text, line, lines)) {
+            suppressedCount += 1;
+            attrMatch = JSX_ATTRIBUTE_REGEX.exec(source);
+            continue;
+          }
           const dedupeKey = `${relativePath}:${line}:jsx_attribute:${text}`;
           if (!seen.has(dedupeKey)) {
             seen.add(dedupeKey);
@@ -326,15 +409,24 @@ const scanHardcodedText = async (
     return left.text.localeCompare(right.text);
   });
 
-  return issues;
+  return { issues, suppressedCount };
 };
 
-export async function runGlossCheck(cfg: GlossConfig): Promise<GlossCheckResult> {
+type RunGlossCheckOptions = {
+  useCache?: boolean;
+};
+
+export async function runGlossCheck(
+  cfg: GlossConfig,
+  options?: RunGlossCheckOptions,
+): Promise<GlossCheckResult> {
   const rootDir = projectRoot();
   const data = (await readAllTranslations(cfg)) as Record<string, unknown>;
   const flatByLocale = flattenByLocale(cfg, data);
   const usageRoot = inferUsageRoot(cfg);
-  const usage = await scanUsage(usageRoot, cfg.scan);
+  const usage = await scanUsage(usageRoot, cfg.scan, {
+    useCache: options?.useCache,
+  });
   const usageKeys = new Set(Object.keys(usage));
   const translationKeys = new Set(
     cfg.locales.flatMap((locale) => Object.keys(flatByLocale[locale] ?? {})),
@@ -368,6 +460,7 @@ export async function runGlossCheck(cfg: GlossConfig): Promise<GlossCheckResult>
     });
     orphanKeys.push({ key, localesWithValue });
   }
+  orphanKeys.sort((left, right) => left.key.localeCompare(right.key));
 
   const invalidKeys: InvalidKeyIssue[] = [];
   for (const key of translationKeys) {
@@ -376,6 +469,7 @@ export async function runGlossCheck(cfg: GlossConfig): Promise<GlossCheckResult>
       invalidKeys.push({ key, reason });
     }
   }
+  invalidKeys.sort((left, right) => left.key.localeCompare(right.key));
 
   const placeholderMismatches: PlaceholderMismatchIssue[] = [];
   for (const key of translationKeys) {
@@ -427,6 +521,12 @@ export async function runGlossCheck(cfg: GlossConfig): Promise<GlossCheckResult>
     }
 
     if (mismatchedLocales.length > 0 || pluralMismatches.length > 0) {
+      pluralMismatches.sort((left, right) => {
+        if (left.locale !== right.locale) {
+          return left.locale.localeCompare(right.locale);
+        }
+        return left.variable.localeCompare(right.variable);
+      });
       placeholderMismatches.push({
         key,
         referenceLocale,
@@ -437,27 +537,45 @@ export async function runGlossCheck(cfg: GlossConfig): Promise<GlossCheckResult>
       });
     }
   }
+  placeholderMismatches.sort((left, right) => left.key.localeCompare(right.key));
 
-  const hardcodedTexts = await scanHardcodedText(usageRoot, cfg);
-  const summary = {
+  const hardcodedScan = await scanHardcodedText(usageRoot, cfg);
+  const hardcodedTexts = hardcodedScan.issues;
+  const policy = getCheckPolicy(cfg);
+  const categoryCounts = {
     missingTranslations: missingTranslations.length,
     orphanKeys: orphanKeys.length,
     invalidKeys: invalidKeys.length,
     placeholderMismatches: placeholderMismatches.length,
     hardcodedTexts: hardcodedTexts.length,
-    totalIssues:
-      missingTranslations.length +
-      orphanKeys.length +
-      invalidKeys.length +
-      placeholderMismatches.length +
-      hardcodedTexts.length,
+    suppressedHardcodedTexts: hardcodedScan.suppressedCount,
   };
+  const errorIssues = policy.failOn.reduce((total, category) => {
+    return total + categoryCounts[category];
+  }, 0);
+  const warningIssues = policy.warnOn.reduce((total, category) => {
+    return total + categoryCounts[category];
+  }, 0);
+  const totalIssues = errorIssues + warningIssues;
+  const summary = {
+    ...categoryCounts,
+    errorIssues,
+    warningIssues,
+    totalIssues,
+  };
+  const ok = summary.errorIssues === 0;
 
   return {
-    ok: summary.totalIssues === 0,
+    schemaVersion: 1,
+    status: ok ? "pass" : "fail",
+    ok,
     generatedAt: new Date().toISOString(),
     rootDir: rootDir,
     locales: cfg.locales,
+    policy: {
+      failOn: [...policy.failOn],
+      warnOn: [...policy.warnOn],
+    },
     summary,
     missingTranslations,
     orphanKeys,
@@ -469,7 +587,7 @@ export async function runGlossCheck(cfg: GlossConfig): Promise<GlossCheckResult>
 
 type CheckOutputFormat = "human" | "json" | "both";
 
-const printTable = (rows: Array<{ label: string; value: number }>) => {
+const printTable = (rows: Array<{ label: string; value: string | number }>) => {
   const labelWidth = Math.max(...rows.map((row) => row.label.length));
   console.log("");
   for (const row of rows) {
@@ -491,18 +609,38 @@ const printSample = (title: string, lines: string[]) => {
 export const printGlossCheck = (
   result: GlossCheckResult,
   format: CheckOutputFormat,
+  baseline?: IssueBaselineReport,
 ) => {
+  const formatSigned = (value: number) => (value > 0 ? `+${value}` : `${value}`);
+
   if (format === "human" || format === "both") {
     console.log(`Gloss check for ${result.rootDir}`);
+    const placeholderSeverity = result.policy.failOn.includes(
+      "placeholderMismatches",
+    )
+      ? "error"
+      : "warning";
     printTable([
-      { label: "Missing translations", value: result.summary.missingTranslations },
-      { label: "Orphan keys", value: result.summary.orphanKeys },
-      { label: "Invalid keys", value: result.summary.invalidKeys },
       {
-        label: "Placeholder mismatches",
+        label: "Missing translations (error)",
+        value: result.summary.missingTranslations,
+      },
+      { label: "Orphan keys (warning)", value: result.summary.orphanKeys },
+      { label: "Invalid keys (error)", value: result.summary.invalidKeys },
+      {
+        label: `Placeholder mismatches (${placeholderSeverity})`,
         value: result.summary.placeholderMismatches,
       },
-      { label: "Hardcoded text candidates", value: result.summary.hardcodedTexts },
+      {
+        label: "Hardcoded text candidates (warning)",
+        value: result.summary.hardcodedTexts,
+      },
+      {
+        label: "Hardcoded text suppressed",
+        value: result.summary.suppressedHardcodedTexts,
+      },
+      { label: "Error issues (fail CI)", value: result.summary.errorIssues },
+      { label: "Warning issues", value: result.summary.warningIssues },
       { label: "Total issues", value: result.summary.totalIssues },
     ]);
 
@@ -547,10 +685,36 @@ export const printGlossCheck = (
       ),
     );
 
+    if (baseline?.hasPrevious) {
+      console.log("\nDelta since baseline");
+      printTable([
+        {
+          label: "Missing translations",
+          value: formatSigned(baseline.delta.missingTranslations),
+        },
+        { label: "Orphan keys", value: formatSigned(baseline.delta.orphanKeys) },
+        { label: "Invalid keys", value: formatSigned(baseline.delta.invalidKeys) },
+        {
+          label: "Placeholder mismatches",
+          value: formatSigned(baseline.delta.placeholderMismatches),
+        },
+        {
+          label: "Hardcoded text candidates",
+          value: formatSigned(baseline.delta.hardcodedTexts),
+        },
+        { label: "Error issues", value: formatSigned(baseline.delta.errorIssues) },
+        {
+          label: "Warning issues",
+          value: formatSigned(baseline.delta.warningIssues),
+        },
+        { label: "Total issues", value: formatSigned(baseline.delta.totalIssues) },
+      ]);
+    } else if (baseline) {
+      console.log(`\nBaseline initialized at ${baseline.baselinePath}`);
+    }
+
     console.log(
-      result.ok
-        ? "\nResult: PASS"
-        : "\nResult: FAIL (non-zero exit code for CI guardrails)",
+      result.ok ? "\nResult: PASS" : "\nResult: FAIL (blocking issues found)",
     );
   }
 
@@ -558,6 +722,6 @@ export const printGlossCheck = (
     if (format === "both") {
       console.log("\nJSON output:");
     }
-    console.log(JSON.stringify(result, null, 2));
+    console.log(JSON.stringify({ ...result, baseline }, null, 2));
   }
 };

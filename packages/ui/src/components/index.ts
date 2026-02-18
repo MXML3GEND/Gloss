@@ -1,10 +1,14 @@
 export { default as AddKeyForm } from "./AddKeyForm";
+export { default as ActionSidebar } from "./ActionSidebar";
 export { default as DuplicateValuesPanel } from "./DuplicateValuesPanel";
 export { default as FileUsageTree } from "./FileUsageTree";
 export { default as FooterActions } from "./FooterActions";
 export { default as HeroHeader } from "./HeroHeader";
+export { default as IssuesInboxPanel } from "./IssuesInboxPanel";
 export { default as ModalDialog } from "./ModalDialog";
+export { default as NamespaceTree } from "./NamespaceTree";
 export { default as RenameInlineForm } from "./RenameInlineForm";
 export { default as StatusBar } from "./StatusBar";
 export { default as Toolbar } from "./Toolbar";
 export { default as TranslationTable } from "./TranslationTable";
+export { default as UsageDetailsPanel } from "./UsageDetailsPanel";

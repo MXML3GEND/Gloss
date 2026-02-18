@@ -8,13 +8,18 @@ import type {
   FlatTranslationsByLocale,
   GitKeyDiff,
   HardcodedTextIssue,
+  IssueBaselineReport,
+  IssuesInboxItem,
   KeyUsageFile,
   KeyUsagePage,
+  NamespaceTableGroup,
+  NamespaceTreeNode,
   TableFilterRule,
   TableSortConfig,
   TranslateFn,
   TranslationTree,
   UsageMap,
+  WorkspaceMode,
 } from "../types/translations";
 import { isMissingValue } from "../types/translations";
 
@@ -118,6 +123,54 @@ const parseGitDiffEntries = (entries: unknown): GitKeyDiff[] => {
     .sort((left, right) => left.key.localeCompare(right.key));
 };
 
+const parseIssueBaselineReport = (value: unknown): IssueBaselineReport | null => {
+  if (!value || typeof value !== "object") {
+    return null;
+  }
+
+  const source = value as Partial<IssueBaselineReport>;
+  const delta = source.delta as Partial<IssueBaselineReport["delta"]> | undefined;
+  if (
+    typeof source.hasPrevious !== "boolean" ||
+    typeof source.baselinePath !== "string" ||
+    (source.previousUpdatedAt !== null &&
+      typeof source.previousUpdatedAt !== "string") ||
+    typeof source.currentUpdatedAt !== "string" ||
+    !delta ||
+    typeof delta !== "object"
+  ) {
+    return null;
+  }
+
+  const entries: Array<keyof IssueBaselineReport["delta"]> = [
+    "missingTranslations",
+    "orphanKeys",
+    "invalidKeys",
+    "placeholderMismatches",
+    "hardcodedTexts",
+    "errorIssues",
+    "warningIssues",
+    "totalIssues",
+  ];
+
+  const parsedDelta = {} as IssueBaselineReport["delta"];
+  for (const key of entries) {
+    const entry = delta[key];
+    if (typeof entry !== "number" || !Number.isFinite(entry)) {
+      return null;
+    }
+    parsedDelta[key] = entry;
+  }
+
+  return {
+    hasPrevious: source.hasPrevious,
+    baselinePath: source.baselinePath,
+    previousUpdatedAt: source.previousUpdatedAt ?? null,
+    currentUpdatedAt: source.currentUpdatedAt,
+    delta: parsedDelta,
+  };
+};
+
 const buildDefaultCommonKey = (value: string): string => {
   const slug = value
     .toLowerCase()
@@ -146,6 +199,65 @@ const placeholderSignature = (value: string) => {
   return Array.from(placeholders).sort().join("|");
 };
 
+const getPlaceholderTokensInOrder = (value: string) => {
+  const tokens: string[] = [];
+  let match = PLACEHOLDER_REGEX.exec(value);
+
+  while (match) {
+    const token = match[1]?.trim();
+    if (token) {
+      tokens.push(token);
+    }
+    match = PLACEHOLDER_REGEX.exec(value);
+  }
+
+  PLACEHOLDER_REGEX.lastIndex = 0;
+  return tokens;
+};
+
+const normalizePlaceholderNames = (value: string, tokens: string[]) => {
+  if (tokens.length === 0) {
+    return value;
+  }
+
+  let index = 0;
+  return value.replace(/\{([a-zA-Z0-9_]+)\}/g, () => {
+    const token = tokens[Math.min(index, tokens.length - 1)];
+    index += 1;
+    return `{${token}}`;
+  });
+};
+
+const DEPRECATED_VALUE_PREFIX = "[DEPRECATED]";
+type RiskLevel = "low" | "medium" | "high";
+
+const RENAME_RISK_THRESHOLDS = {
+  high: { usageCount: 20, fileCount: 10 },
+  medium: { usageCount: 5, fileCount: 3 },
+} as const;
+
+const UNIFY_RISK_THRESHOLDS = {
+  high: { usageCount: 30, fileCount: 10, keyCount: 8 },
+  medium: { usageCount: 8, fileCount: 4, keyCount: 4 },
+} as const;
+
+const scoreMetric = (value: number, mediumThreshold: number, highThreshold: number) => {
+  if (value <= 0) {
+    return 0;
+  }
+  if (highThreshold <= mediumThreshold) {
+    return value >= highThreshold ? 100 : 0;
+  }
+  if (value >= highThreshold) {
+    return 100;
+  }
+  if (value >= mediumThreshold) {
+    const ratio = (value - mediumThreshold) / (highThreshold - mediumThreshold);
+    return Math.round(55 + ratio * 35);
+  }
+  return Math.round((value / mediumThreshold) * 50);
+};
+
 const EMPTY_TEXT_OPERATORS = new Set(["is_empty", "is_not_empty"]);
 
 const createFilterRuleId = () => {
@@ -169,20 +281,230 @@ const getColumnKind = (column: string): "text" | "number" | "status" => {
   return "text";
 };
 
+type SearchDslFilter = {
+  keyPattern: RegExp | null;
+  locales: string[] | null;
+  missing: boolean | null;
+  usage: number | null;
+  placeholderMismatch: boolean | null;
+  changed: boolean | null;
+  unused: boolean | null;
+  terms: string[];
+};
+
+type MutableNamespaceNode = {
+  id: string;
+  label: string;
+  keyCount: number;
+  missingCount: number;
+  unusedCount: number;
+  children: Map<string, MutableNamespaceNode>;
+};
+
+const parseBooleanLiteral = (value: string): boolean | null => {
+  const normalized = value.trim().toLowerCase();
+  if (normalized === "true") {
+    return true;
+  }
+  if (normalized === "false") {
+    return false;
+  }
+  return null;
+};
+
+const escapeRegExp = (value: string) =>
+  value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+
+const compileGlobToRegExp = (pattern: string) => {
+  const normalized = pattern.trim();
+  if (!normalized) {
+    return null;
+  }
+  const source =
+    "^" +
+    normalized
+      .split("*")
+      .map((segment) => escapeRegExp(segment))
+      .join(".*") +
+    "$";
+  return new RegExp(source, "i");
+};
+
+const parseSearchDsl = (query: string, localeList: string[]): SearchDslFilter => {
+  const tokens = query
+    .trim()
+    .split(/\s+/)
+    .map((token) => token.trim())
+    .filter((token) => token.length > 0);
+
+  const next: SearchDslFilter = {
+    keyPattern: null,
+    locales: null,
+    missing: null,
+    usage: null,
+    placeholderMismatch: null,
+    changed: null,
+    unused: null,
+    terms: [],
+  };
+
+  for (const token of tokens) {
+    const separatorIndex = token.indexOf(":");
+    if (separatorIndex === -1) {
+      next.terms.push(token.toLowerCase());
+      continue;
+    }
+
+    const rawName = token.slice(0, separatorIndex).trim().toLowerCase();
+    const rawValue = token.slice(separatorIndex + 1).trim();
+    if (!rawName || !rawValue) {
+      next.terms.push(token.toLowerCase());
+      continue;
+    }
+
+    if (rawName === "key") {
+      next.keyPattern = compileGlobToRegExp(rawValue);
+      continue;
+    }
+
+    if (rawName === "locale") {
+      const requestedLocales = rawValue
+        .split(",")
+        .map((value) => value.trim())
+        .filter((value) => localeList.includes(value));
+      next.locales = requestedLocales.length > 0 ? requestedLocales : [];
+      continue;
+    }
+
+    if (rawName === "missing") {
+      next.missing = parseBooleanLiteral(rawValue);
+      continue;
+    }
+
+    if (rawName === "placeholdermismatch") {
+      next.placeholderMismatch = parseBooleanLiteral(rawValue);
+      continue;
+    }
+
+    if (rawName === "changed") {
+      next.changed = parseBooleanLiteral(rawValue);
+      continue;
+    }
+
+    if (rawName === "unused") {
+      next.unused = parseBooleanLiteral(rawValue);
+      continue;
+    }
+
+    if (rawName === "usage") {
+      const parsed = Number.parseInt(rawValue, 10);
+      next.usage = Number.isNaN(parsed) ? null : parsed;
+      continue;
+    }
+
+    next.terms.push(token.toLowerCase());
+  }
+
+  return next;
+};
+
+const getInvalidDotKeyReason = (value: string) => {
+  if (value.startsWith(".") || value.endsWith(".")) {
+    return "boundary_dot" as const;
+  }
+  if (value.includes("..")) {
+    return "consecutive_dots" as const;
+  }
+  if (value.split(".").some((segment) => segment.trim() === "")) {
+    return "empty_segment" as const;
+  }
+  return null;
+};
+
+const getTopLevelNamespace = (key: string) => {
+  const [firstSegment] = key.split(".").filter(Boolean);
+  return firstSegment || key;
+};
+
+const buildNamespaceTree = (
+  keys: string[],
+  locales: string[],
+  data: FlatTranslationsByLocale,
+  usage: UsageMap,
+): NamespaceTreeNode[] => {
+  const root = new Map<string, MutableNamespaceNode>();
+
+  for (const key of keys) {
+    const namespaceParts = key.split(".").filter(Boolean).slice(0, -1);
+    if (namespaceParts.length === 0) {
+      continue;
+    }
+
+    const missing = locales.some((locale) => isMissingValue(data[locale]?.[key] ?? ""));
+    const unused = (usage[key]?.count ?? 0) === 0;
+    let path = "";
+    let cursor = root;
+
+    for (const part of namespaceParts) {
+      path = path ? `${path}.${part}` : part;
+      if (!cursor.has(part)) {
+        cursor.set(part, {
+          id: path,
+          label: part,
+          keyCount: 0,
+          missingCount: 0,
+          unusedCount: 0,
+          children: new Map<string, MutableNamespaceNode>(),
+        });
+      }
+
+      const node = cursor.get(part)!;
+      node.keyCount += 1;
+      if (missing) {
+        node.missingCount += 1;
+      }
+      if (unused) {
+        node.unusedCount += 1;
+      }
+      cursor = node.children;
+    }
+  }
+
+  const toTree = (source: Map<string, MutableNamespaceNode>): NamespaceTreeNode[] => {
+    return Array.from(source.values())
+      .sort((left, right) => left.label.localeCompare(right.label))
+      .map((node) => ({
+        id: node.id,
+        label: node.label,
+        keyCount: node.keyCount,
+        missingCount: node.missingCount,
+        unusedCount: node.unusedCount,
+        children: toTree(node.children),
+      }));
+  };
+
+  return toTree(root);
+};
+
 type UseTranslationsParams = {
   t: TranslateFn;
   dialog: DialogApi;
+  onNotify?: (message: string) => void;
 };
 
-export function useTranslations({ t, dialog }: UseTranslationsParams) {
+export function useTranslations({ t, dialog, onNotify }: UseTranslationsParams) {
   const [data, setData] = useState<FlatTranslationsByLocale>({});
   const [baselineData, setBaselineData] = useState<FlatTranslationsByLocale>({});
+  const [configuredDefaultLocale, setConfiguredDefaultLocale] = useState("en");
   const [loading, setLoading] = useState(true);
   const [loadingError, setLoadingError] = useState<string | null>(null);
   const [saveError, setSaveError] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
   const [lastSavedAt, setLastSavedAt] = useState<Date | null>(null);
   const [staleData, setStaleData] = useState(false);
+  const [workspaceMode, setWorkspaceMode] = useState<WorkspaceMode>(
+    "maintenance",
+  );
   const [filterValue, setFilterValue] = useState("");
   const [showOnlyMissing, setShowOnlyMissing] = useState(false);
   const [filterRules, setFilterRules] = useState<TableFilterRule[]>([]);
@@ -205,8 +527,16 @@ export function useTranslations({ t, dialog }: UseTranslationsParams) {
   const [hardcodedTextIssues, setHardcodedTextIssues] = useState<
     HardcodedTextIssue[]
   >([]);
+  const [issueBaseline, setIssueBaseline] = useState<IssueBaselineReport | null>(
+    null,
+  );
   const [selectedPage, setSelectedPage] = useState("all");
   const [selectedFile, setSelectedFile] = useState("all");
+  const [selectedNamespace, setSelectedNamespace] = useState("all");
+  const [groupByNamespace, setGroupByNamespace] = useState(false);
+  const [collapsedNamespaceGroups, setCollapsedNamespaceGroups] = useState<string[]>(
+    [],
+  );
   const [expandedKey, setExpandedKey] = useState<string | null>(null);
   const [highlightedKey, setHighlightedKey] = useState<string | null>(null);
   const translateRef = useRef<TranslateFn>(t);
@@ -214,6 +544,42 @@ export function useTranslations({ t, dialog }: UseTranslationsParams) {
   useEffect(() => {
     translateRef.current = t;
   }, [t]);
+
+  useEffect(() => {
+    if (typeof window === "undefined") {
+      return;
+    }
+
+    const storedMode = window.localStorage.getItem("gloss-workspace-mode");
+    if (storedMode === "translate" || storedMode === "maintenance") {
+      setWorkspaceMode(storedMode);
+    }
+  }, []);
+
+  useEffect(() => {
+    if (typeof window === "undefined") {
+      return;
+    }
+
+    window.localStorage.setItem("gloss-workspace-mode", workspaceMode);
+  }, [workspaceMode]);
+
+  const loadConfig = useCallback(async () => {
+    try {
+      const response = await fetch("/api/config");
+      if (!response.ok) {
+        return;
+      }
+      const payload = (await response.json()) as { defaultLocale?: unknown };
+      const nextDefaultLocale =
+        typeof payload.defaultLocale === "string" ? payload.defaultLocale.trim() : "";
+      if (nextDefaultLocale) {
+        setConfiguredDefaultLocale(nextDefaultLocale);
+      }
+    } catch {
+      return;
+    }
+  }, []);
 
   const loadKeyUsage = useCallback(async () => {
     try {
@@ -348,6 +714,7 @@ export function useTranslations({ t, dialog }: UseTranslationsParams) {
       const payload = (await response.json()) as {
         summary?: { hardcodedTexts?: unknown };
         hardcodedTexts?: unknown;
+        baseline?: unknown;
       };
       const issues = Array.isArray(payload.hardcodedTexts)
         ? payload.hardcodedTexts
@@ -387,6 +754,7 @@ export function useTranslations({ t, dialog }: UseTranslationsParams) {
       setHardcodedTextCount(count);
       setHardcodedTextPreview(previewEntries);
       setHardcodedTextIssues(issues);
+      setIssueBaseline(parseIssueBaselineReport(payload.baseline));
     } catch {
       return;
     }
@@ -397,13 +765,14 @@ export function useTranslations({ t, dialog }: UseTranslationsParams) {
       const key = value.trim();
 
       if (!key) return t("keyRequired");
-      if (key.startsWith(".") || key.endsWith(".")) {
+      const invalidReason = getInvalidDotKeyReason(key);
+      if (invalidReason === "boundary_dot") {
         return t("keyBoundaryDot");
       }
-      if (key.includes("..")) {
+      if (invalidReason === "consecutive_dots") {
         return t("keyConsecutiveDots");
       }
-      if (key.split(".").some((segment) => segment.trim() === "")) {
+      if (invalidReason === "empty_segment") {
         return t("keyEmptySegment");
       }
 
@@ -451,6 +820,10 @@ export function useTranslations({ t, dialog }: UseTranslationsParams) {
   }, [loadTranslations]);
 
   useEffect(() => {
+    void loadConfig();
+  }, [loadConfig]);
+
+  useEffect(() => {
     void loadUsage();
   }, [loadUsage]);
 
@@ -467,6 +840,15 @@ export function useTranslations({ t, dialog }: UseTranslationsParams) {
   }, [loadCheckSummary]);
 
   const locales = Object.keys(data);
+  const defaultLocale = useMemo(() => {
+    if (configuredDefaultLocale && locales.includes(configuredDefaultLocale)) {
+      return configuredDefaultLocale;
+    }
+    if (locales.includes("en")) {
+      return "en";
+    }
+    return locales[0] ?? "";
+  }, [configuredDefaultLocale, locales]);
   const allKeys = useMemo(() => {
     const keySet = new Set<string>();
 
@@ -495,7 +877,119 @@ export function useTranslations({ t, dialog }: UseTranslationsParams) {
     return Array.from(keySet).sort();
   }, [data, fileUsages, locales, usage, usagePages]);
   const { groups: duplicateValueGroups } = useDuplicateValues(data);
-  const normalizedFilter = filterValue.trim().toLowerCase();
+  const searchDsl = useMemo(() => parseSearchDsl(filterValue, locales), [filterValue, locales]);
+  const placeholderMismatchByKey = useMemo(() => {
+    const mismatches = new Set<string>();
+
+    for (const key of allKeys) {
+      const signatures = new Set<string>();
+
+      for (const locale of locales) {
+        const value = data[locale]?.[key] ?? "";
+        if (value.trim() === "") {
+          continue;
+        }
+
+        signatures.add(placeholderSignature(value));
+      }
+
+      if (signatures.size > 1) {
+        mismatches.add(key);
+      }
+    }
+
+    return mismatches;
+  }, [allKeys, data, locales]);
+  const issuesInboxItems = useMemo(() => {
+    const items: IssuesInboxItem[] = [];
+    const valueToKeys = new Map<string, Set<string>>();
+
+    for (const key of allKeys) {
+      for (const locale of locales) {
+        const value = (data[locale]?.[key] ?? "").trim();
+        if (!value) {
+          continue;
+        }
+        const keysForValue = valueToKeys.get(value) ?? new Set<string>();
+        keysForValue.add(key);
+        valueToKeys.set(value, keysForValue);
+      }
+
+      const missingLocales = locales.filter((locale) =>
+        isMissingValue(data[locale]?.[key] ?? ""),
+      );
+      if (missingLocales.length > 0) {
+        items.push({
+          id: `missing:${key}`,
+          type: "missing",
+          key,
+          missingLocales,
+        });
+      }
+
+      if ((usage[key]?.count ?? 0) === 0) {
+        items.push({
+          id: `unused:${key}`,
+          type: "unused",
+          key,
+        });
+      }
+
+      if (placeholderMismatchByKey.has(key)) {
+        items.push({
+          id: `placeholder:${key}`,
+          type: "placeholder_mismatch",
+          key,
+        });
+      }
+
+      const invalidReason = getInvalidDotKeyReason(key.trim());
+      if (invalidReason) {
+        items.push({
+          id: `invalid:${key}`,
+          type: "invalid_key",
+          key,
+          invalidReason,
+        });
+      }
+    }
+
+    for (const issue of hardcodedTextIssues) {
+      const hardcodedValue = issue.text.trim();
+      const matchedKeys = hardcodedValue ? valueToKeys.get(hardcodedValue) : undefined;
+      const matchedKey =
+        matchedKeys && matchedKeys.size === 1
+          ? Array.from(matchedKeys)[0]
+          : undefined;
+
+      items.push({
+        id: `hardcoded:${issue.file}:${issue.line}:${issue.kind}:${issue.text}`,
+        type: "hardcoded_text",
+        key: matchedKey,
+        file: issue.file,
+        line: issue.line,
+        text: issue.text,
+      });
+    }
+
+    return items;
+  }, [allKeys, data, hardcodedTextIssues, locales, placeholderMismatchByKey, usage]);
+  const namespaceTree = useMemo(
+    () => buildNamespaceTree(allKeys, locales, data, usage),
+    [allKeys, data, locales, usage],
+  );
+  const namespaceIdSet = useMemo(() => {
+    const ids = new Set<string>();
+    const visit = (nodes: NamespaceTreeNode[]) => {
+      for (const node of nodes) {
+        ids.add(node.id);
+        visit(node.children);
+      }
+    };
+
+    visit(namespaceTree);
+    return ids;
+  }, [namespaceTree]);
   const gitChangedKeySet = useMemo(
     () => new Set(Object.keys(gitDiffByKey)),
     [gitDiffByKey],
@@ -555,6 +1049,207 @@ export function useTranslations({ t, dialog }: UseTranslationsParams) {
       }, 0);
     },
     [data, locales],
+  );
+
+  const buildKeyDiagnosticsLines = useCallback(
+    (key: string) => {
+      const lines: string[] = [t("diagnosticsLabel")];
+      const usageEntry = usage[key];
+      const usageCount = usageEntry?.count ?? 0;
+      const files = usageEntry?.files ?? [];
+      const missingLocales = locales.filter((locale) =>
+        isMissingValue(data[locale]?.[key] ?? ""),
+      );
+      const changedLocales = locales.filter((locale) =>
+        (data[locale]?.[key] ?? "") !== (baselineData[locale]?.[key] ?? ""),
+      );
+
+      lines.push(`- ${t("diagnosticsUsage", { count: usageCount })}`);
+      lines.push(`- ${t("diagnosticsFiles", { count: files.length })}`);
+
+      if (missingLocales.length > 0) {
+        lines.push(
+          `- ${t("diagnosticsMissingLocales", {
+            locales: missingLocales.join(", "),
+          })}`,
+        );
+      }
+
+      if (changedLocales.length > 0) {
+        lines.push(
+          `- ${t("diagnosticsChangedLocales", {
+            locales: changedLocales.join(", "),
+          })}`,
+        );
+      }
+
+      if (placeholderMismatchByKey.has(key)) {
+        lines.push(`- ${t("diagnosticsPlaceholderMismatch")}`);
+      }
+
+      if (getInvalidDotKeyReason(key.trim())) {
+        lines.push(`- ${t("diagnosticsInvalidKey")}`);
+      }
+
+      return lines.join("\n");
+    },
+    [baselineData, data, locales, placeholderMismatchByKey, t, usage],
+  );
+
+  const riskLevelLabel = useCallback(
+    (level: RiskLevel) => {
+      if (level === "high") {
+        return t("riskLevelHigh");
+      }
+      if (level === "medium") {
+        return t("riskLevelMedium");
+      }
+      return t("riskLevelLow");
+    },
+    [t],
+  );
+
+  const getRenameRiskLevel = useCallback((usageCount: number, fileCount: number): RiskLevel => {
+    if (
+      usageCount >= RENAME_RISK_THRESHOLDS.high.usageCount ||
+      fileCount >= RENAME_RISK_THRESHOLDS.high.fileCount
+    ) {
+      return "high";
+    }
+    if (
+      usageCount >= RENAME_RISK_THRESHOLDS.medium.usageCount ||
+      fileCount >= RENAME_RISK_THRESHOLDS.medium.fileCount
+    ) {
+      return "medium";
+    }
+    return "low";
+  }, []);
+
+  const getUnifyRiskLevel = useCallback(
+    (usageCount: number, fileCount: number, keyCount: number): RiskLevel => {
+      if (
+        usageCount >= UNIFY_RISK_THRESHOLDS.high.usageCount ||
+        fileCount >= UNIFY_RISK_THRESHOLDS.high.fileCount ||
+        keyCount >= UNIFY_RISK_THRESHOLDS.high.keyCount
+      ) {
+        return "high";
+      }
+      if (
+        usageCount >= UNIFY_RISK_THRESHOLDS.medium.usageCount ||
+        fileCount >= UNIFY_RISK_THRESHOLDS.medium.fileCount ||
+        keyCount >= UNIFY_RISK_THRESHOLDS.medium.keyCount
+      ) {
+        return "medium";
+      }
+      return "low";
+    },
+    [],
+  );
+
+  const getRenameRiskScore = useCallback((usageCount: number, fileCount: number) => {
+    const usageScore = scoreMetric(
+      usageCount,
+      RENAME_RISK_THRESHOLDS.medium.usageCount,
+      RENAME_RISK_THRESHOLDS.high.usageCount,
+    );
+    const fileScore = scoreMetric(
+      fileCount,
+      RENAME_RISK_THRESHOLDS.medium.fileCount,
+      RENAME_RISK_THRESHOLDS.high.fileCount,
+    );
+    return Math.max(usageScore, fileScore);
+  }, []);
+
+  const getUnifyRiskScore = useCallback(
+    (usageCount: number, fileCount: number, keyCount: number) => {
+      const usageScore = scoreMetric(
+        usageCount,
+        UNIFY_RISK_THRESHOLDS.medium.usageCount,
+        UNIFY_RISK_THRESHOLDS.high.usageCount,
+      );
+      const fileScore = scoreMetric(
+        fileCount,
+        UNIFY_RISK_THRESHOLDS.medium.fileCount,
+        UNIFY_RISK_THRESHOLDS.high.fileCount,
+      );
+      const keyScore = scoreMetric(
+        keyCount,
+        UNIFY_RISK_THRESHOLDS.medium.keyCount,
+        UNIFY_RISK_THRESHOLDS.high.keyCount,
+      );
+      return Math.max(usageScore, fileScore, keyScore);
+    },
+    [],
+  );
+
+  const buildRenameRiskPreview = useCallback(
+    (oldKey: string, newKey: string) => {
+      const usageCount = usage[oldKey]?.count ?? 0;
+      const usageFiles = usage[oldKey]?.files ?? [];
+      const affectedLocales = locales.length;
+      const level = getRenameRiskLevel(usageCount, usageFiles.length);
+      const score = getRenameRiskScore(usageCount, usageFiles.length);
+
+      const lines = [
+        t("riskPreviewTitle"),
+        t("riskRenameSummary", { oldKey, newKey }),
+        t("riskLevelLabel", { level: riskLevelLabel(level) }),
+        t("riskScoreLabel", { score }),
+        t("riskAffectedLocales", { count: affectedLocales }),
+        t("riskUsageOccurrences", { count: usageCount }),
+        t("riskUsageFiles", { count: usageFiles.length }),
+      ];
+
+      return {
+        level,
+        score,
+        message: lines.join("\n"),
+      };
+    },
+    [getRenameRiskLevel, getRenameRiskScore, locales.length, riskLevelLabel, t, usage],
+  );
+
+  const buildUnifyRiskPreview = useCallback(
+    (group: DuplicateValueGroup, newKey: string, deleteOldKeys: boolean) => {
+      const affectedKeys = group.keys.filter((key) => key !== newKey);
+      const usageCount = affectedKeys.reduce((total, key) => total + (usage[key]?.count ?? 0), 0);
+      const usageFiles = new Set(
+        affectedKeys.flatMap((key) => usage[key]?.files ?? []),
+      );
+      const level = getUnifyRiskLevel(
+        usageCount,
+        usageFiles.size,
+        affectedKeys.length,
+      );
+      const score = getUnifyRiskScore(
+        usageCount,
+        usageFiles.size,
+        affectedKeys.length,
+      );
+      const mode = deleteOldKeys ? t("riskUnifyModeDelete") : t("riskUnifyModeReference");
+
+      const lines = [
+        t("riskPreviewTitle"),
+        t("riskUnifySummary", {
+          count: affectedKeys.length,
+          newKey,
+        }),
+        t("riskLevelLabel", { level: riskLevelLabel(level) }),
+        t("riskScoreLabel", { score }),
+        t("riskUnifyMode", { mode }),
+        t("riskAffectedLocales", { count: locales.length }),
+        t("riskAffectedKeys", { count: affectedKeys.length }),
+        t("riskUsageOccurrences", { count: usageCount }),
+        t("riskUsageFiles", { count: usageFiles.size }),
+      ];
+
+      return {
+        level,
+        score,
+        message: lines.join("\n"),
+      };
+    },
+    [getUnifyRiskLevel, getUnifyRiskScore, locales.length, riskLevelLabel, t, usage],
   );
 
   const getStatusTokensForKey = useCallback(
@@ -646,16 +1341,69 @@ export function useTranslations({ t, dialog }: UseTranslationsParams) {
   );
 
   const keys = allKeys.filter((key) => {
-    if (normalizedFilter && !key.toLowerCase().includes(normalizedFilter)) {
-      return false;
-    }
-
     if (showOnlyGitChanged && !changedSinceBaseKeySet.has(key)) {
       return false;
     }
 
     if (showOnlyMissing && !isRowMissing(key)) {
       return false;
+    }
+
+    if (selectedNamespace !== "all") {
+      const namespacePrefix = `${selectedNamespace}.`;
+      if (key !== selectedNamespace && !key.startsWith(namespacePrefix)) {
+        return false;
+      }
+    }
+
+    const keyText = key.toLowerCase();
+    for (const term of searchDsl.terms) {
+      if (!keyText.includes(term)) {
+        return false;
+      }
+    }
+
+    if (searchDsl.keyPattern && !searchDsl.keyPattern.test(key)) {
+      return false;
+    }
+
+    const usageCount = usage[key]?.count ?? 0;
+    if (searchDsl.usage !== null && usageCount !== searchDsl.usage) {
+      return false;
+    }
+
+    if (searchDsl.unused !== null) {
+      const isUnused = usageCount === 0;
+      if (searchDsl.unused !== isUnused) {
+        return false;
+      }
+    }
+
+    if (searchDsl.changed !== null) {
+      const isChanged = changedSinceBaseKeySet.has(key);
+      if (searchDsl.changed !== isChanged) {
+        return false;
+      }
+    }
+
+    if (searchDsl.placeholderMismatch !== null) {
+      const hasPlaceholderMismatch = placeholderMismatchByKey.has(key);
+      if (searchDsl.placeholderMismatch !== hasPlaceholderMismatch) {
+        return false;
+      }
+    }
+
+    if (searchDsl.missing !== null) {
+      const localesToCheck =
+        searchDsl.locales && searchDsl.locales.length > 0
+          ? searchDsl.locales
+          : locales;
+      const hasMissing = localesToCheck.some((locale) =>
+        isMissingValue(data[locale]?.[key] ?? ""),
+      );
+      if (searchDsl.missing !== hasMissing) {
+        return false;
+      }
     }
 
     for (const rule of filterRules) {
@@ -720,7 +1468,7 @@ export function useTranslations({ t, dialog }: UseTranslationsParams) {
     return true;
   });
 
-  const visibleKeys = useMemo(() => {
+  const orderedVisibleKeys = useMemo(() => {
     const next = [...filteredBySelectionKeys];
 
     if (!sortConfig) {
@@ -781,28 +1529,41 @@ export function useTranslations({ t, dialog }: UseTranslationsParams) {
     return next;
   }, [data, filteredBySelectionKeys, getTranslatedCountForKey, sortConfig, usage]);
 
-  const placeholderMismatchByKey = useMemo(() => {
-    const mismatches = new Set<string>();
+  const namespaceTableGroups = useMemo<NamespaceTableGroup[]>(() => {
+    const groups = new Map<string, NamespaceTableGroup>();
 
-    for (const key of allKeys) {
-      const signatures = new Set<string>();
-
-      for (const locale of locales) {
-        const value = data[locale]?.[key] ?? "";
-        if (value.trim() === "") {
-          continue;
-        }
-
-        signatures.add(placeholderSignature(value));
+    for (const key of orderedVisibleKeys) {
+      const namespaceId = getTopLevelNamespace(key);
+      const existing = groups.get(namespaceId);
+      if (existing) {
+        existing.keys.push(key);
+        continue;
       }
 
-      if (signatures.size > 1) {
-        mismatches.add(key);
-      }
+      groups.set(namespaceId, {
+        id: namespaceId,
+        label: namespaceId,
+        keys: [key],
+      });
     }
 
-    return mismatches;
-  }, [allKeys, data, locales]);
+    return Array.from(groups.values());
+  }, [orderedVisibleKeys]);
+
+  const collapsedNamespaceGroupSet = useMemo(
+    () => new Set(collapsedNamespaceGroups),
+    [collapsedNamespaceGroups],
+  );
+
+  const visibleKeys = useMemo(() => {
+    if (!groupByNamespace || collapsedNamespaceGroupSet.size === 0) {
+      return orderedVisibleKeys;
+    }
+
+    return orderedVisibleKeys.filter(
+      (key) => !collapsedNamespaceGroupSet.has(getTopLevelNamespace(key)),
+    );
+  }, [collapsedNamespaceGroupSet, groupByNamespace, orderedVisibleKeys]);
 
   useEffect(() => {
     if (selectedPage === "all") {
@@ -823,6 +1584,39 @@ export function useTranslations({ t, dialog }: UseTranslationsParams) {
       setSelectedFile("all");
     }
   }, [fileUsages, selectedFile]);
+
+  useEffect(() => {
+    if (selectedNamespace === "all") {
+      return;
+    }
+
+    if (!namespaceIdSet.has(selectedNamespace)) {
+      setSelectedNamespace("all");
+    }
+  }, [namespaceIdSet, selectedNamespace]);
+
+  useEffect(() => {
+    const availableGroups = new Set(namespaceTableGroups.map((group) => group.id));
+    setCollapsedNamespaceGroups((prev) => {
+      const next = prev.filter((groupId) => availableGroups.has(groupId));
+      return next.length === prev.length ? prev : next;
+    });
+  }, [namespaceTableGroups]);
+
+  useEffect(() => {
+    if (workspaceMode !== "translate") {
+      return;
+    }
+
+    setShowOnlyGitChanged(false);
+    setSelectedPage("all");
+    setSelectedFile("all");
+    setSelectedNamespace("all");
+    setExpandedKey(null);
+    setRenamingKey(null);
+    setRenameValue("");
+    setRenameError(null);
+  }, [workspaceMode]);
 
   useEffect(() => {
     const localeSet = new Set(locales);
@@ -864,6 +1658,9 @@ export function useTranslations({ t, dialog }: UseTranslationsParams) {
   };
 
   const hasMissingInView = visibleKeys.some((key) => isRowMissing(key));
+  const translatedRowsCount = allKeys.reduce((count, key) => {
+    return count + (isRowMissing(key) ? 0 : 1);
+  }, 0);
   const totalMissingCells = allKeys.reduce((count, key) => {
     return (
       count +
@@ -872,6 +1669,8 @@ export function useTranslations({ t, dialog }: UseTranslationsParams) {
       }, 0)
     );
   }, 0);
+  const unsavedChangedKeyCount = unsavedChangedKeySet.size;
+  const changedSinceBaseKeyCount = changedSinceBaseKeySet.size;
 
   const handleChange = useCallback((locale: string, key: string, value: string) => {
     setSaveError(null);
@@ -998,6 +1797,19 @@ export function useTranslations({ t, dialog }: UseTranslationsParams) {
         return;
       }
 
+      const renameRiskPreview = buildRenameRiskPreview(oldKey, trimmedKey);
+      const shouldRename = await dialog.confirm(
+        `${t("renameKeyConfirm", { oldKey, newKey: trimmedKey })}\n\n${renameRiskPreview.message}\n\n${buildKeyDiagnosticsLines(oldKey)}`,
+        {
+          confirmLabel: t("apply"),
+          cancelLabel: t("cancel"),
+          tone: renameRiskPreview.level === "high" ? "danger" : "primary",
+        },
+      );
+      if (!shouldRename) {
+        return;
+      }
+
       try {
         const response = await fetch("/api/rename-key", {
           method: "POST",
@@ -1042,10 +1854,13 @@ export function useTranslations({ t, dialog }: UseTranslationsParams) {
     },
     [
       allKeys,
+      buildKeyDiagnosticsLines,
       cancelRename,
+      dialog,
       loadKeyUsage,
       loadUsage,
       locales,
+      buildRenameRiskPreview,
       renameValue,
       t,
       validateDotKey,
@@ -1054,11 +1869,14 @@ export function useTranslations({ t, dialog }: UseTranslationsParams) {
 
   const deleteKey = useCallback(
     async (key: string) => {
-      const shouldDelete = await dialog.confirm(t("deleteKeyConfirm", { key }), {
-        confirmLabel: t("delete"),
-        cancelLabel: t("cancel"),
-        tone: "danger",
-      });
+      const shouldDelete = await dialog.confirm(
+        `${t("deleteKeyConfirm", { key })}\n\n${buildKeyDiagnosticsLines(key)}`,
+        {
+          confirmLabel: t("delete"),
+          cancelLabel: t("cancel"),
+          tone: "danger",
+        },
+      );
       if (!shouldDelete) {
         return;
       }
@@ -1079,12 +1897,538 @@ export function useTranslations({ t, dialog }: UseTranslationsParams) {
       if (renamingKey === key) {
         cancelRename();
       }
+
+      onNotify?.(t("deleteKeySuccess", { key }));
     },
-    [cancelRename, dialog, locales, renamingKey, t],
+    [buildKeyDiagnosticsLines, cancelRename, dialog, locales, onNotify, renamingKey, t],
+  );
+
+  const fillMissingFromDefaultLocale = useCallback(
+    (key: string) => {
+      if (!defaultLocale || locales.length === 0) {
+        return;
+      }
+
+      const fallbackValue =
+        data[defaultLocale]?.[key] ??
+        locales
+          .map((locale) => data[locale]?.[key] ?? "")
+          .find((value) => !isMissingValue(value)) ??
+        "";
+
+      if (isMissingValue(fallbackValue)) {
+        onNotify?.(t("issuesFixMissingNoSource", { key }));
+        return;
+      }
+
+      let updatedCount = 0;
+      setSaveError(null);
+      setStaleData(false);
+      setData((prev) => {
+        const next: FlatTranslationsByLocale = { ...prev };
+
+        for (const locale of locales) {
+          const currentValue = next[locale]?.[key] ?? "";
+          if (!isMissingValue(currentValue)) {
+            continue;
+          }
+
+          const localeData = { ...(next[locale] ?? {}) };
+          localeData[key] = fallbackValue;
+          next[locale] = localeData;
+          updatedCount += 1;
+        }
+
+        return next;
+      });
+
+      if (updatedCount === 0) {
+        onNotify?.(t("issuesFixNoChanges"));
+        return;
+      }
+
+      onNotify?.(
+        t("issuesFixMissingSuccess", {
+          count: updatedCount,
+          locale: defaultLocale,
+        }),
+      );
+    },
+    [data, defaultLocale, locales, onNotify, t],
+  );
+
+  const normalizeIssuePlaceholders = useCallback(
+    (key: string) => {
+      if (locales.length === 0) {
+        return;
+      }
+
+      const preferredLocales =
+        defaultLocale && locales.includes(defaultLocale)
+          ? [defaultLocale, ...locales.filter((locale) => locale !== defaultLocale)]
+          : [...locales];
+
+      const referenceTokens =
+        preferredLocales
+          .map((locale) => getPlaceholderTokensInOrder(data[locale]?.[key] ?? ""))
+          .find((tokens) => tokens.length > 0) ?? [];
+
+      if (referenceTokens.length === 0) {
+        onNotify?.(t("issuesFixPlaceholderNoSource", { key }));
+        return;
+      }
+
+      let changedLocales = 0;
+      setSaveError(null);
+      setStaleData(false);
+      setData((prev) => {
+        const next: FlatTranslationsByLocale = { ...prev };
+
+        for (const locale of locales) {
+          const currentValue = next[locale]?.[key] ?? "";
+          if (isMissingValue(currentValue)) {
+            continue;
+          }
+
+          const normalizedValue = normalizePlaceholderNames(
+            currentValue,
+            referenceTokens,
+          );
+          if (normalizedValue === currentValue) {
+            continue;
+          }
+
+          const localeData = { ...(next[locale] ?? {}) };
+          localeData[key] = normalizedValue;
+          next[locale] = localeData;
+          changedLocales += 1;
+        }
+
+        return next;
+      });
+
+      if (changedLocales === 0) {
+        onNotify?.(t("issuesFixNoChanges"));
+        return;
+      }
+
+      onNotify?.(t("issuesFixPlaceholderSuccess", { count: changedLocales }));
+    },
+    [data, defaultLocale, locales, onNotify, t],
+  );
+
+  const deleteUnusedIssueKey = useCallback(
+    async (key: string) => {
+      const shouldDelete = await dialog.confirm(
+        t("issuesFixUnusedDeleteConfirm", { key }),
+        {
+          confirmLabel: t("delete"),
+          cancelLabel: t("cancel"),
+          tone: "danger",
+        },
+      );
+      if (!shouldDelete) {
+        return;
+      }
+
+      setSaveError(null);
+      setData((prev) => {
+        const next: FlatTranslationsByLocale = { ...prev };
+        for (const locale of locales) {
+          const localeData = { ...(next[locale] ?? {}) };
+          delete localeData[key];
+          next[locale] = localeData;
+        }
+        return next;
+      });
+
+      if (renamingKey === key) {
+        cancelRename();
+      }
+
+      onNotify?.(t("deleteKeySuccess", { key }));
+    },
+    [cancelRename, dialog, locales, onNotify, renamingKey, t],
+  );
+
+  const deprecateUnusedIssueKey = useCallback(
+    async (key: string) => {
+      const shouldDeprecate = await dialog.confirm(
+        t("issuesFixUnusedDeprecateConfirm", { key }),
+        {
+          confirmLabel: t("issuesActionDeprecate"),
+          cancelLabel: t("cancel"),
+        },
+      );
+      if (!shouldDeprecate) {
+        return;
+      }
+
+      let changedLocales = 0;
+      setSaveError(null);
+      setStaleData(false);
+      setData((prev) => {
+        const next: FlatTranslationsByLocale = { ...prev };
+        for (const locale of locales) {
+          const localeData = { ...(next[locale] ?? {}) };
+          if (!(key in localeData)) {
+            continue;
+          }
+
+          const currentValue = localeData[key] ?? "";
+          const trimmedValue = currentValue.trim();
+          const normalizedValue =
+            trimmedValue.length === 0
+              ? DEPRECATED_VALUE_PREFIX
+              : trimmedValue.startsWith(DEPRECATED_VALUE_PREFIX)
+                ? currentValue
+                : `${DEPRECATED_VALUE_PREFIX} ${currentValue}`;
+
+          if (normalizedValue === currentValue) {
+            continue;
+          }
+
+          localeData[key] = normalizedValue;
+          next[locale] = localeData;
+          changedLocales += 1;
+        }
+        return next;
+      });
+
+      if (changedLocales === 0) {
+        onNotify?.(t("issuesFixNoChanges"));
+        return;
+      }
+
+      onNotify?.(t("issuesFixUnusedDeprecatedSuccess", { key }));
+    },
+    [dialog, locales, onNotify, t],
+  );
+
+  const fillAllMissingFromDefaultLocale = useCallback(() => {
+    if (!defaultLocale || locales.length === 0) {
+      return;
+    }
+
+    const missingKeys = allKeys.filter((key) =>
+      locales.some((locale) => isMissingValue(data[locale]?.[key] ?? "")),
+    );
+    if (missingKeys.length === 0) {
+      onNotify?.(t("issuesFixNoChanges"));
+      return;
+    }
+
+    let updatedCount = 0;
+    let touchedKeys = 0;
+
+    setSaveError(null);
+    setStaleData(false);
+    setData((prev) => {
+      const next: FlatTranslationsByLocale = { ...prev };
+
+      for (const key of missingKeys) {
+        const fallbackValue =
+          next[defaultLocale]?.[key] ??
+          locales
+            .map((locale) => next[locale]?.[key] ?? "")
+            .find((value) => !isMissingValue(value)) ??
+          "";
+
+        if (isMissingValue(fallbackValue)) {
+          continue;
+        }
+
+        let keyUpdated = false;
+        for (const locale of locales) {
+          const currentValue = next[locale]?.[key] ?? "";
+          if (!isMissingValue(currentValue)) {
+            continue;
+          }
+
+          const localeData = { ...(next[locale] ?? {}) };
+          localeData[key] = fallbackValue;
+          next[locale] = localeData;
+          updatedCount += 1;
+          keyUpdated = true;
+        }
+
+        if (keyUpdated) {
+          touchedKeys += 1;
+        }
+      }
+
+      return next;
+    });
+
+    if (updatedCount === 0) {
+      onNotify?.(t("issuesFixNoChanges"));
+      return;
+    }
+
+    onNotify?.(
+      t("issuesFixMissingBulkSuccess", {
+        count: updatedCount,
+        keys: touchedKeys,
+        locale: defaultLocale,
+      }),
+    );
+  }, [allKeys, data, defaultLocale, locales, onNotify, t]);
+
+  const normalizeAllIssuePlaceholders = useCallback(() => {
+    const mismatchKeys = allKeys.filter((key) => placeholderMismatchByKey.has(key));
+    if (mismatchKeys.length === 0 || locales.length === 0) {
+      onNotify?.(t("issuesFixNoChanges"));
+      return;
+    }
+
+    const preferredLocales =
+      defaultLocale && locales.includes(defaultLocale)
+        ? [defaultLocale, ...locales.filter((locale) => locale !== defaultLocale)]
+        : [...locales];
+
+    let changedLocales = 0;
+    let touchedKeys = 0;
+
+    setSaveError(null);
+    setStaleData(false);
+    setData((prev) => {
+      const next: FlatTranslationsByLocale = { ...prev };
+
+      for (const key of mismatchKeys) {
+        const referenceTokens =
+          preferredLocales
+            .map((locale) => getPlaceholderTokensInOrder(next[locale]?.[key] ?? ""))
+            .find((tokens) => tokens.length > 0) ?? [];
+
+        if (referenceTokens.length === 0) {
+          continue;
+        }
+
+        let keyChanged = false;
+        for (const locale of locales) {
+          const currentValue = next[locale]?.[key] ?? "";
+          if (isMissingValue(currentValue)) {
+            continue;
+          }
+
+          const normalizedValue = normalizePlaceholderNames(
+            currentValue,
+            referenceTokens,
+          );
+          if (normalizedValue === currentValue) {
+            continue;
+          }
+
+          const localeData = { ...(next[locale] ?? {}) };
+          localeData[key] = normalizedValue;
+          next[locale] = localeData;
+          changedLocales += 1;
+          keyChanged = true;
+        }
+
+        if (keyChanged) {
+          touchedKeys += 1;
+        }
+      }
+
+      return next;
+    });
+
+    if (changedLocales === 0) {
+      onNotify?.(t("issuesFixNoChanges"));
+      return;
+    }
+
+    onNotify?.(
+      t("issuesFixPlaceholderBulkSuccess", {
+        count: changedLocales,
+        keys: touchedKeys,
+      }),
+    );
+  }, [allKeys, defaultLocale, locales, onNotify, placeholderMismatchByKey, t]);
+
+  const deprecateAllUnusedIssueKeys = useCallback(async () => {
+    const unusedKeys = allKeys.filter((key) => (usage[key]?.count ?? 0) === 0);
+    if (unusedKeys.length === 0) {
+      onNotify?.(t("issuesFixNoChanges"));
+      return;
+    }
+
+    const shouldDeprecate = await dialog.confirm(
+      t("issuesFixUnusedDeprecateAllConfirm"),
+      {
+        confirmLabel: t("issuesActionDeprecateAllUnused"),
+        cancelLabel: t("cancel"),
+      },
+    );
+    if (!shouldDeprecate) {
+      return;
+    }
+
+    let changedLocales = 0;
+    let touchedKeys = 0;
+
+    setSaveError(null);
+    setStaleData(false);
+    setData((prev) => {
+      const next: FlatTranslationsByLocale = { ...prev };
+      for (const key of unusedKeys) {
+        let keyChanged = false;
+        for (const locale of locales) {
+          const localeData = { ...(next[locale] ?? {}) };
+          if (!(key in localeData)) {
+            continue;
+          }
+
+          const currentValue = localeData[key] ?? "";
+          const trimmedValue = currentValue.trim();
+          const normalizedValue =
+            trimmedValue.length === 0
+              ? DEPRECATED_VALUE_PREFIX
+              : trimmedValue.startsWith(DEPRECATED_VALUE_PREFIX)
+                ? currentValue
+                : `${DEPRECATED_VALUE_PREFIX} ${currentValue}`;
+
+          if (normalizedValue === currentValue) {
+            continue;
+          }
+
+          localeData[key] = normalizedValue;
+          next[locale] = localeData;
+          changedLocales += 1;
+          keyChanged = true;
+        }
+        if (keyChanged) {
+          touchedKeys += 1;
+        }
+      }
+      return next;
+    });
+
+    if (changedLocales === 0) {
+      onNotify?.(t("issuesFixNoChanges"));
+      return;
+    }
+
+    onNotify?.(
+      t("issuesFixUnusedDeprecatedBulkSuccess", {
+        keys: touchedKeys,
+        count: changedLocales,
+      }),
+    );
+  }, [allKeys, dialog, locales, onNotify, t, usage]);
+
+  const exportXliff = useCallback(
+    async (locale: string) => {
+      const targetLocale = locale.trim();
+      if (!targetLocale || !locales.includes(targetLocale)) {
+        setSaveError(t("xliffExportFailed"));
+        return;
+      }
+
+      try {
+        const query = new URLSearchParams({
+          locale: targetLocale,
+          sourceLocale: defaultLocale || targetLocale,
+        }).toString();
+        const response = await fetch(`/api/xliff/export?${query}`);
+        if (!response.ok) {
+          throw new Error(String(response.status));
+        }
+
+        const xml = await response.text();
+        const blob = new Blob([xml], { type: "application/xliff+xml;charset=utf-8" });
+        const objectUrl = URL.createObjectURL(blob);
+        const link = document.createElement("a");
+        link.href = objectUrl;
+        link.download = `gloss-${targetLocale}.xlf`;
+        document.body.appendChild(link);
+        link.click();
+        link.remove();
+        URL.revokeObjectURL(objectUrl);
+
+        setSaveError(null);
+        onNotify?.(t("xliffExportSuccess", { locale: targetLocale }));
+      } catch (error) {
+        const status =
+          error instanceof Error && !Number.isNaN(Number(error.message))
+            ? Number(error.message)
+            : undefined;
+        setSaveError(
+          status === undefined
+            ? t("xliffExportFailed")
+            : t("xliffExportFailedWithStatus", { status }),
+        );
+      }
+    },
+    [defaultLocale, locales, onNotify, t],
+  );
+
+  const importXliff = useCallback(
+    async (locale: string, content: string) => {
+      const targetLocale = locale.trim();
+      if (!targetLocale || !locales.includes(targetLocale)) {
+        setSaveError(t("xliffImportFailed"));
+        return;
+      }
+      if (!content.trim()) {
+        setSaveError(t("xliffImportFailed"));
+        return;
+      }
+
+      try {
+        const query = new URLSearchParams({ locale: targetLocale }).toString();
+        const response = await fetch(`/api/xliff/import?${query}`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ content }),
+        });
+        if (!response.ok) {
+          throw new Error(String(response.status));
+        }
+
+        const payload = (await response.json()) as { updated?: unknown };
+        const updated =
+          typeof payload.updated === "number" && Number.isFinite(payload.updated)
+            ? payload.updated
+            : 0;
+
+        await loadTranslations();
+        await loadUsage();
+        await loadKeyUsage();
+        await loadGitDiff();
+        await loadCheckSummary();
+        setLastSavedAt(new Date());
+        setSaveError(null);
+        onNotify?.(
+          t("xliffImportSuccess", { locale: targetLocale, count: updated }),
+        );
+      } catch (error) {
+        const status =
+          error instanceof Error && !Number.isNaN(Number(error.message))
+            ? Number(error.message)
+            : undefined;
+        setSaveError(
+          status === undefined
+            ? t("xliffImportFailed")
+            : t("xliffImportFailedWithStatus", { status }),
+        );
+      }
+    },
+    [loadCheckSummary, loadGitDiff, loadKeyUsage, loadTranslations, loadUsage, locales, onNotify, t],
   );
 
   const toggleExpandedKey = useCallback((key: string) => {
     setExpandedKey((current) => (current === key ? null : key));
+  }, []);
+
+  const toggleNamespaceGroup = useCallback((groupId: string) => {
+    setCollapsedNamespaceGroups((prev) => {
+      if (prev.includes(groupId)) {
+        return prev.filter((id) => id !== groupId);
+      }
+      return [...prev, groupId];
+    });
   }, []);
 
   const focusKey = useCallback((key: string) => {
@@ -1093,13 +2437,25 @@ export function useTranslations({ t, dialog }: UseTranslationsParams) {
       return;
     }
 
+    const namespace = trimmed.split(".").slice(0, -1).join(".");
+
+    setWorkspaceMode("maintenance");
     setFilterValue(trimmed);
     setShowOnlyMissing(false);
     setShowOnlyGitChanged(false);
     setSelectedPage("all");
     setSelectedFile("all");
-    setExpandedKey(trimmed);
+    setSelectedNamespace(namespace || "all");
     setHighlightedKey(trimmed);
+  }, []);
+
+  const reviewChangedKeys = useCallback(() => {
+    setWorkspaceMode("maintenance");
+    setShowOnlyGitChanged(true);
+    setShowOnlyMissing(false);
+    setSelectedPage("all");
+    setSelectedFile("all");
+    setSelectedNamespace("all");
   }, []);
 
   useEffect(() => {
@@ -1185,6 +2541,23 @@ export function useTranslations({ t, dialog }: UseTranslationsParams) {
         },
       );
 
+      const unifyRiskPreview = buildUnifyRiskPreview(
+        group,
+        nextKey,
+        shouldDeleteOldKeys,
+      );
+      const shouldApplyUnify = await dialog.confirm(unifyRiskPreview.message, {
+        confirmLabel: t("apply"),
+        cancelLabel: t("cancel"),
+        tone:
+          shouldDeleteOldKeys || unifyRiskPreview.level === "high"
+            ? "danger"
+            : "primary",
+      });
+      if (!shouldApplyUnify) {
+        return;
+      }
+
       setSaveError(null);
       setStaleData(false);
       setData((prev) => {
@@ -1225,7 +2598,16 @@ export function useTranslations({ t, dialog }: UseTranslationsParams) {
         cancelRename();
       }
     },
-    [allKeys, cancelRename, dialog, locales, renamingKey, t, validateDotKey],
+    [
+      allKeys,
+      buildUnifyRiskPreview,
+      cancelRename,
+      dialog,
+      locales,
+      renamingKey,
+      t,
+      validateDotKey,
+    ],
   );
 
   const save = useCallback(async () => {
@@ -1378,12 +2760,15 @@ export function useTranslations({ t, dialog }: UseTranslationsParams) {
   return {
     data,
     baselineData,
+    defaultLocale,
     loading,
     loadingError,
     saveError,
     saving,
     lastSavedAt,
     staleData,
+    workspaceMode,
+    groupByNamespace,
     filterValue,
     showOnlyMissing,
     filterRules,
@@ -1405,10 +2790,16 @@ export function useTranslations({ t, dialog }: UseTranslationsParams) {
     hardcodedTextCount,
     hardcodedTextPreview,
     hardcodedTextIssues,
+    issueBaseline,
+    issuesInboxItems,
     duplicateValueGroups,
+    namespaceTree,
+    namespaceTableGroups,
+    collapsedNamespaceGroupSet,
     placeholderMismatchByKey,
     selectedPage,
     selectedFile,
+    selectedNamespace,
     selectedFileKeySet,
     expandedKey,
     highlightedKey,
@@ -1417,9 +2808,14 @@ export function useTranslations({ t, dialog }: UseTranslationsParams) {
     keys,
     visibleKeys,
     hasUnsavedChanges,
+    unsavedChangedKeyCount,
+    changedSinceBaseKeyCount,
     hasMissingInView,
+    translatedRowsCount,
     totalMissingCells,
     setFilterValue,
+    setWorkspaceMode,
+    setGroupByNamespace,
     setShowOnlyMissing,
     addFilterRule,
     updateFilterRule,
@@ -1431,6 +2827,7 @@ export function useTranslations({ t, dialog }: UseTranslationsParams) {
     setShowOnlyGitChanged,
     setSelectedPage,
     setSelectedFile,
+    setSelectedNamespace,
     updateNewKey,
     updateRenameValue,
     isRowMissing,
@@ -1442,10 +2839,22 @@ export function useTranslations({ t, dialog }: UseTranslationsParams) {
     cancelRename,
     applyRename,
     deleteKey,
+    fillMissingFromDefaultLocale,
+    fillAllMissingFromDefaultLocale,
+    normalizeIssuePlaceholders,
+    normalizeAllIssuePlaceholders,
+    deleteUnusedIssueKey,
+    deprecateUnusedIssueKey,
+    deprecateAllUnusedIssueKeys,
+    exportXliff,
+    importXliff,
     save,
     refreshFromDisk,
     toggleExpandedKey,
+    toggleNamespaceGroup,
     focusKey,
+    reviewChangedKeys,
+    reloadCheckSummary: loadCheckSummary,
     unifyDuplicateGroup,
   };
 }

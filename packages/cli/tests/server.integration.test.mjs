@@ -61,6 +61,29 @@ const withInitCwd = async (nextCwd, run) => {
   }
 };
 
+const withEnv = async (nextEnv, run) => {
+  const previousEntries = Object.entries(nextEnv).map(([key]) => [
+    key,
+    process.env[key],
+  ]);
+
+  for (const [key, value] of Object.entries(nextEnv)) {
+    process.env[key] = value;
+  }
+
+  try {
+    return await run();
+  } finally {
+    for (const [key, value] of previousEntries) {
+      if (value === undefined) {
+        delete process.env[key];
+      } else {
+        process.env[key] = value;
+      }
+    }
+  }
+};
+
 test("GET /api/usage returns key usage counts and files", async () => {
   const project = await makeTempProject("gloss-usage");
   try {
@@ -112,6 +135,61 @@ test("GET /api/usage returns key usage counts and files", async () => {
           "src/pages/HomePage.tsx",
         ]);
         assert.equal(payload["dashboard.cards.totalUsers"]?.count, 1);
+      } finally {
+        await server.close();
+      }
+    });
+  } finally {
+    await project.cleanup();
+  }
+});
+
+test("GET /api/usage updates cached results when source files change", async () => {
+  const project = await makeTempProject("gloss-usage-cache");
+  try {
+    await writeJson(path.join(project.rootDir, "src/i18n/en.json"), {
+      auth: { login: { title: "Welcome", subtitle: "Sign in" } },
+    });
+    await writeJson(path.join(project.rootDir, "src/i18n/nl.json"), {
+      auth: { login: { title: "Welkom", subtitle: "Meld je aan" } },
+    });
+    await fs.mkdir(path.join(project.rootDir, "src/pages"), { recursive: true });
+    const pagePath = path.join(project.rootDir, "src/pages/LoginPage.tsx");
+    await fs.writeFile(
+      pagePath,
+      ["export function LoginPage() {", "  t('auth.login.title');", "}", ""].join("\n"),
+      "utf8",
+    );
+
+    const cfg = {
+      locales: ["en", "nl"],
+      defaultLocale: "en",
+      path: "src/i18n",
+      format: "json",
+    };
+
+    await withInitCwd(project.rootDir, async () => {
+      const server = await start(cfg);
+      try {
+        const firstResponse = await fetch(`${server.baseUrl}/api/usage`);
+        assert.equal(firstResponse.status, 200);
+        const firstPayload = await firstResponse.json();
+        assert.equal(firstPayload["auth.login.title"]?.count, 1);
+        assert.equal(firstPayload["auth.login.subtitle"], undefined);
+
+        await fs.writeFile(
+          pagePath,
+          ["export function LoginPage() {", "  t('auth.login.subtitle');", "}", ""].join(
+            "\n",
+          ),
+          "utf8",
+        );
+
+        const secondResponse = await fetch(`${server.baseUrl}/api/usage`);
+        assert.equal(secondResponse.status, 200);
+        const secondPayload = await secondResponse.json();
+        assert.equal(secondPayload["auth.login.title"], undefined);
+        assert.equal(secondPayload["auth.login.subtitle"]?.count, 1);
       } finally {
         await server.close();
       }
@@ -176,6 +254,189 @@ test("GET /api/key-usage returns page keys including imported component keys", a
         );
         assert.ok(panelFile);
         assert.ok(panelFile.keys.includes("panel.cta"));
+      } finally {
+        await server.close();
+      }
+    });
+  } finally {
+    await project.cleanup();
+  }
+});
+
+test("GET /api/key-usage updates cached results when imported files change", async () => {
+  const project = await makeTempProject("gloss-key-usage-cache");
+  try {
+    await writeJson(path.join(project.rootDir, "src/i18n/en.json"), {
+      home: { title: "Home" },
+      panel: { cta: "Open", subtitle: "Details" },
+    });
+    await writeJson(path.join(project.rootDir, "src/i18n/nl.json"), {
+      home: { title: "Start" },
+      panel: { cta: "Openen", subtitle: "Details" },
+    });
+    await fs.mkdir(path.join(project.rootDir, "src/pages"), { recursive: true });
+    await fs.mkdir(path.join(project.rootDir, "src/components"), { recursive: true });
+    const pagePath = path.join(project.rootDir, "src/pages/HomePage.tsx");
+    const panelPath = path.join(project.rootDir, "src/components/Panel.tsx");
+    await fs.writeFile(
+      pagePath,
+      [
+        "import { Panel } from '../components/Panel';",
+        "export function HomePage() {",
+        "  t('home.title');",
+        "  return Panel();",
+        "}",
+        "",
+      ].join("\n"),
+      "utf8",
+    );
+    await fs.writeFile(
+      panelPath,
+      ["export function Panel() {", "  return t('panel.cta');", "}", ""].join("\n"),
+      "utf8",
+    );
+
+    const cfg = {
+      locales: ["en", "nl"],
+      defaultLocale: "en",
+      path: "src/i18n",
+      format: "json",
+    };
+
+    await withInitCwd(project.rootDir, async () => {
+      const server = await start(cfg);
+      try {
+        const firstResponse = await fetch(`${server.baseUrl}/api/key-usage`);
+        assert.equal(firstResponse.status, 200);
+        const firstPayload = await firstResponse.json();
+        const firstPage = firstPayload.pages.find(
+          (entry) => entry.file === "src/pages/HomePage.tsx",
+        );
+        assert.ok(firstPage?.keys.includes("panel.cta"));
+        assert.ok(!firstPage?.keys.includes("panel.subtitle"));
+
+        await fs.writeFile(
+          panelPath,
+          ["export function Panel() {", "  return t('panel.subtitle');", "}", ""].join(
+            "\n",
+          ),
+          "utf8",
+        );
+
+        const secondResponse = await fetch(`${server.baseUrl}/api/key-usage`);
+        assert.equal(secondResponse.status, 200);
+        const secondPayload = await secondResponse.json();
+        const secondPage = secondPayload.pages.find(
+          (entry) => entry.file === "src/pages/HomePage.tsx",
+        );
+        assert.ok(!secondPage?.keys.includes("panel.cta"));
+        assert.ok(secondPage?.keys.includes("panel.subtitle"));
+      } finally {
+        await server.close();
+      }
+    });
+  } finally {
+    await project.cleanup();
+  }
+});
+
+test("GET /api/xliff/export returns locale xliff document", async () => {
+  const project = await makeTempProject("gloss-xliff-export");
+  try {
+    await writeJson(path.join(project.rootDir, "src/i18n/en.json"), {
+      auth: { login: { title: "Welcome" } },
+      profile: { greeting: "Hello {name}" },
+    });
+    await writeJson(path.join(project.rootDir, "src/i18n/nl.json"), {
+      auth: { login: { title: "Welkom" } },
+      profile: { greeting: "" },
+    });
+
+    const cfg = {
+      locales: ["en", "nl"],
+      defaultLocale: "en",
+      path: "src/i18n",
+      format: "json",
+    };
+
+    await withInitCwd(project.rootDir, async () => {
+      const server = await start(cfg);
+      try {
+        const response = await fetch(
+          `${server.baseUrl}/api/xliff/export?locale=nl&sourceLocale=en`,
+        );
+        assert.equal(response.status, 200);
+        assert.match(
+          response.headers.get("content-type") ?? "",
+          /application\/xliff\+xml/i,
+        );
+
+        const payload = await response.text();
+        assert.match(payload, /<trans-unit id="auth\.login\.title">/);
+        assert.match(payload, /<source>Welcome<\/source>/);
+        assert.match(payload, /<target>Welkom<\/target>/);
+      } finally {
+        await server.close();
+      }
+    });
+  } finally {
+    await project.cleanup();
+  }
+});
+
+test("POST /api/xliff/import updates locale keys from xliff targets", async () => {
+  const project = await makeTempProject("gloss-xliff-import");
+  try {
+    await writeJson(path.join(project.rootDir, "src/i18n/en.json"), {
+      auth: { login: { title: "Welcome" } },
+      profile: { greeting: "Hello {name}" },
+    });
+    await writeJson(path.join(project.rootDir, "src/i18n/nl.json"), {
+      auth: { login: { title: "Welkom" } },
+      profile: { greeting: "" },
+    });
+
+    const cfg = {
+      locales: ["en", "nl"],
+      defaultLocale: "en",
+      path: "src/i18n",
+      format: "json",
+    };
+
+    const xliff = `<?xml version="1.0" encoding="UTF-8"?>
+<xliff version="1.2">
+  <file source-language="en" target-language="nl" datatype="plaintext" original="gloss">
+    <body>
+      <trans-unit id="auth.login.title">
+        <source>Welcome</source>
+        <target>Aangemeld</target>
+      </trans-unit>
+      <trans-unit id="profile.greeting">
+        <source>Hello {name}</source>
+        <target>Hallo {name}</target>
+      </trans-unit>
+    </body>
+  </file>
+</xliff>`;
+
+    await withInitCwd(project.rootDir, async () => {
+      const server = await start(cfg);
+      try {
+        const response = await fetch(`${server.baseUrl}/api/xliff/import?locale=nl`, {
+          method: "POST",
+          headers: { "content-type": "application/json" },
+          body: JSON.stringify({ content: xliff }),
+        });
+        assert.equal(response.status, 200);
+        const payload = await response.json();
+        assert.equal(payload.ok, true);
+        assert.equal(payload.updated, 2);
+
+        const translationsResponse = await fetch(`${server.baseUrl}/api/translations`);
+        assert.equal(translationsResponse.status, 200);
+        const translationsPayload = await translationsResponse.json();
+        assert.equal(translationsPayload.nl.auth.login.title, "Aangemeld");
+        assert.equal(translationsPayload.nl.profile.greeting, "Hallo {name}");
       } finally {
         await server.close();
       }
@@ -357,6 +618,60 @@ test("usage scanners respect scan.exclude globs", async () => {
       } finally {
         await server.close();
       }
+    });
+  } finally {
+    await project.cleanup();
+  }
+});
+
+test("POST /api/translations returns 409 when translation write lock is held", async () => {
+  const project = await makeTempProject("gloss-write-lock");
+  try {
+    await writeJson(path.join(project.rootDir, "src/i18n/en.json"), {
+      auth: { login: { title: "Welcome" } },
+    });
+    await writeJson(path.join(project.rootDir, "src/i18n/nl.json"), {
+      auth: { login: { title: "Welkom" } },
+    });
+
+    const cfg = {
+      locales: ["en", "nl"],
+      defaultLocale: "en",
+      path: "src/i18n",
+      format: "json",
+    };
+
+    const lockPath = path.join(project.rootDir, "src/i18n/.gloss-write.lock");
+    await fs.mkdir(path.dirname(lockPath), { recursive: true });
+    await fs.writeFile(lockPath, "locked", "utf8");
+
+    await withInitCwd(project.rootDir, async () => {
+      await withEnv(
+        {
+          GLOSS_WRITE_LOCK_TIMEOUT_MS: "40",
+          GLOSS_WRITE_LOCK_RETRY_MS: "10",
+        },
+        async () => {
+          const server = await start(cfg);
+          try {
+            const response = await fetch(`${server.baseUrl}/api/translations`, {
+              method: "POST",
+              headers: { "content-type": "application/json" },
+              body: JSON.stringify({
+                en: { auth: { login: { title: "Hi" } } },
+                nl: { auth: { login: { title: "Hoi" } } },
+              }),
+            });
+
+            assert.equal(response.status, 409);
+            const payload = await response.json();
+            assert.equal(payload.ok, false);
+            assert.match(payload.error, /save is in progress/i);
+          } finally {
+            await server.close();
+          }
+        },
+      );
     });
   } finally {
     await project.cleanup();

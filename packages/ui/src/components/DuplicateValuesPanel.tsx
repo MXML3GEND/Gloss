@@ -12,13 +12,12 @@ export default function DuplicateValuesPanel({
   onUnify,
 }: DuplicateValuesPanelProps) {
   if (groups.length === 0) {
-    return <p className="empty-state">{t("duplicateValuesEmpty")}</p>;
+    return <p className="empty-state empty-state--panel">{t("duplicateValuesEmpty")}</p>;
   }
 
   return (
     <div className="duplicates-panel">
       <p className="duplicates-panel__title">{t("duplicateValuesTitle")}</p>
-      <p>dzqdzqdqzdqz</p>
 
       <div className="duplicates-panel__list">
         {groups.map((group) => (

@@ -4,11 +4,14 @@ import { fileURLToPath } from "node:url";
 import express from "express";
 import cors from "cors";
 import type { GlossConfig, TranslationsByLocale } from "@gloss/shared";
+import { updateIssueBaseline } from "./baseline.js";
 import { runGlossCheck } from "./check.js";
-import { readAllTranslations, writeAllTranslations } from "./fs.js";
+import { readAllTranslations, WriteLockError, writeAllTranslations } from "./fs.js";
 import { buildGitKeyDiff } from "./gitDiff.js";
+import { flattenObject, unflattenObject } from "./translationTree.js";
 import { buildKeyUsageMap } from "./usage.js";
 import { inferUsageRoot, scanUsage } from "./usageScanner.js";
+import { buildXliffDocument, parseXliffTargets } from "./xliff.js";
 import { renameKeyUsage } from "./renameKeyUsage.js";
 
 const resolveUiDistPath = () => {
@@ -30,9 +33,38 @@ const resolveUiDistPath = () => {
 };
 
 export function createServerApp(cfg: GlossConfig) {
+  return createServerAppWithOptions(cfg);
+}
+
+type ServerRuntimeOptions = {
+  useCache?: boolean;
+};
+
+const shouldBypassCache = (value: unknown) => {
+  if (typeof value !== "string") {
+    return false;
+  }
+  return value === "1" || value.toLowerCase() === "true";
+};
+
+export function createServerAppWithOptions(
+  cfg: GlossConfig,
+  runtimeOptions: ServerRuntimeOptions = {},
+) {
   const app = express();
   app.use(cors());
   app.use(express.json({ limit: "5mb" }));
+  const defaultUseCache = runtimeOptions.useCache !== false;
+  const requestUseCache = (req: express.Request) => {
+    if (!defaultUseCache) {
+      return false;
+    }
+    const noCacheValue = req.query.noCache;
+    if (Array.isArray(noCacheValue)) {
+      return !noCacheValue.some((entry) => shouldBypassCache(entry));
+    }
+    return !shouldBypassCache(noCacheValue);
+  };
 
   app.get("/api/config", (_req, res) => res.json(cfg));
 
@@ -42,17 +74,32 @@ export function createServerApp(cfg: GlossConfig) {
   });
 
   app.get("/api/usage", async (_req, res) => {
-    const usage = await scanUsage(inferUsageRoot(cfg), cfg.scan);
+    const usage = await scanUsage(inferUsageRoot(cfg), cfg.scan, {
+      useCache: requestUseCache(_req),
+    });
     res.json(usage);
   });
 
-  app.get("/api/key-usage", async (_req, res) => {
-    const usage = await buildKeyUsageMap(cfg);
+  app.get("/api/key-usage", async (req, res) => {
+    const usage = await buildKeyUsageMap(cfg, {
+      useCache: requestUseCache(req),
+    });
     res.json(usage);
   });
 
   app.get("/api/check", async (req, res) => {
-    const result = await runGlossCheck(cfg);
+    const result = await runGlossCheck(cfg, {
+      useCache: requestUseCache(req),
+    });
+    let baseline: Awaited<ReturnType<typeof updateIssueBaseline>> | null = null;
+    try {
+      baseline = await updateIssueBaseline(
+        process.env.INIT_CWD || process.cwd(),
+        result.summary,
+      );
+    } catch {
+      baseline = null;
+    }
     const summaryValue =
       typeof req.query.summary === "string" ? req.query.summary : "";
     const summaryOnly = summaryValue === "1" || summaryValue === "true";
@@ -63,11 +110,12 @@ export function createServerApp(cfg: GlossConfig) {
         generatedAt: result.generatedAt,
         summary: result.summary,
         hardcodedTexts: result.hardcodedTexts.slice(0, 20),
+        baseline,
       });
       return;
     }
 
-    res.json(result);
+    res.json({ ...result, baseline });
   });
 
   app.get("/api/git-diff", async (req, res) => {
@@ -79,10 +127,120 @@ export function createServerApp(cfg: GlossConfig) {
     res.json(diff);
   });
 
+  app.get("/api/xliff/export", async (req, res) => {
+    const locale = typeof req.query.locale === "string" ? req.query.locale.trim() : "";
+    const sourceLocale =
+      typeof req.query.sourceLocale === "string" && req.query.sourceLocale.trim()
+        ? req.query.sourceLocale.trim()
+        : cfg.defaultLocale;
+
+    if (!locale || !cfg.locales.includes(locale)) {
+      res.status(400).json({
+        ok: false,
+        error: "Query parameter `locale` is required and must be one of configured locales.",
+      });
+      return;
+    }
+
+    if (!cfg.locales.includes(sourceLocale)) {
+      res.status(400).json({
+        ok: false,
+        error:
+          "Query parameter `sourceLocale` must be one of configured locales when provided.",
+      });
+      return;
+    }
+
+    const data = await readAllTranslations(cfg);
+    const xml = buildXliffDocument({
+      translations: data,
+      locales: cfg.locales,
+      sourceLocale,
+      targetLocale: locale,
+    });
+
+    res.setHeader("Content-Type", "application/xliff+xml; charset=utf-8");
+    res.setHeader(
+      "Content-Disposition",
+      `attachment; filename="gloss-${locale}.xlf"`,
+    );
+    res.send(xml);
+  });
+
+  app.post("/api/xliff/import", async (req, res) => {
+    const locale = typeof req.query.locale === "string" ? req.query.locale.trim() : "";
+    if (!locale || !cfg.locales.includes(locale)) {
+      res.status(400).json({
+        ok: false,
+        error: "Query parameter `locale` is required and must be one of configured locales.",
+      });
+      return;
+    }
+
+    const body = req.body as { content?: unknown };
+    if (typeof body.content !== "string" || body.content.trim().length === 0) {
+      res.status(400).json({
+        ok: false,
+        error: "Request body must include non-empty `content` string.",
+      });
+      return;
+    }
+
+    try {
+      const parsedTargets = parseXliffTargets(body.content);
+      const updates = Object.entries(parsedTargets).filter(([key]) => key.trim().length > 0);
+      if (updates.length === 0) {
+        res.status(400).json({
+          ok: false,
+          error: "No translatable units found in XLIFF content.",
+        });
+        return;
+      }
+
+      const data = await readAllTranslations(cfg);
+      const localeFlat = flattenObject(data[locale] ?? {});
+
+      for (const [key, value] of updates) {
+        localeFlat[key] = value;
+      }
+
+      data[locale] = unflattenObject(localeFlat);
+      await writeAllTranslations(cfg, data);
+
+      res.json({
+        ok: true,
+        locale,
+        updated: updates.length,
+      });
+    } catch (error) {
+      if (error instanceof WriteLockError) {
+        res.status(409).json({ ok: false, error: error.message });
+        return;
+      }
+
+      res.status(400).json({
+        ok: false,
+        error: (error as Error).message || "Failed to parse XLIFF content.",
+      });
+    }
+  });
+
   app.post("/api/translations", async (req, res) => {
     const data = req.body as TranslationsByLocale;
-    await writeAllTranslations(cfg, data);
-    res.json({ ok: true });
+    try {
+      await writeAllTranslations(cfg, data);
+      res.json({ ok: true });
+    } catch (error) {
+      if (error instanceof WriteLockError) {
+        res.status(409).json({ ok: false, error: error.message });
+        return;
+      }
+
+      res.status(500).json({
+        ok: false,
+        error: "Failed to write translation files.",
+      });
+    }
   });
 
   app.post("/api/rename-key", async (req, res) => {
@@ -125,8 +283,12 @@ export function createServerApp(cfg: GlossConfig) {
   return app;
 }
 
-export async function startServer(cfg: GlossConfig, port = 5179) {
-  const app = createServerApp(cfg);
+export async function startServer(
+  cfg: GlossConfig,
+  port = 5179,
+  runtimeOptions: ServerRuntimeOptions = {},
+) {
+  const app = createServerAppWithOptions(cfg, runtimeOptions);
 
   const server = await new Promise<ReturnType<typeof app.listen>>((resolve) => {
     const nextServer = app.listen(port, () => resolve(nextServer));

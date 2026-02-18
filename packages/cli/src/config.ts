@@ -50,6 +50,107 @@ const normalizeScanConfig = (value: unknown): GlossConfig["scan"] => {
   return { include, exclude, mode };
 };
 
+const DEFAULT_HARDCODED_MIN_LENGTH = 3;
+const DEFAULT_STRICT_PLACEHOLDERS = true;
+
+const normalizeStrictPlaceholders = (
+  value: unknown,
+): GlossConfig["strictPlaceholders"] => {
+  if (value === undefined) {
+    return DEFAULT_STRICT_PLACEHOLDERS;
+  }
+
+  if (typeof value !== "boolean") {
+    throw new GlossConfigError(
+      "INVALID_CONFIG",
+      "`strictPlaceholders` must be a boolean when provided.",
+    );
+  }
+
+  return value;
+};
+
+const normalizeHardcodedTextConfig = (
+  value: unknown,
+): GlossConfig["hardcodedText"] => {
+  if (value === undefined) {
+    return {
+      enabled: true,
+      minLength: DEFAULT_HARDCODED_MIN_LENGTH,
+      excludePatterns: [],
+    };
+  }
+
+  if (!value || typeof value !== "object" || Array.isArray(value)) {
+    throw new GlossConfigError(
+      "INVALID_CONFIG",
+      "`hardcodedText` must be an object when provided.",
+    );
+  }
+
+  const hardcodedText = value as {
+    enabled?: unknown;
+    minLength?: unknown;
+    excludePatterns?: unknown;
+  };
+
+  const enabled =
+    typeof hardcodedText.enabled === "boolean" ? hardcodedText.enabled : true;
+
+  const minLength =
+    typeof hardcodedText.minLength === "number" &&
+    Number.isFinite(hardcodedText.minLength) &&
+    hardcodedText.minLength >= 1
+      ? Math.floor(hardcodedText.minLength)
+      : DEFAULT_HARDCODED_MIN_LENGTH;
+
+  if (
+    hardcodedText.minLength !== undefined &&
+    (typeof hardcodedText.minLength !== "number" ||
+      !Number.isFinite(hardcodedText.minLength) ||
+      hardcodedText.minLength < 1)
+  ) {
+    throw new GlossConfigError(
+      "INVALID_CONFIG",
+      "`hardcodedText.minLength` must be a number >= 1 when provided.",
+    );
+  }
+
+  if (
+    hardcodedText.excludePatterns !== undefined &&
+    !Array.isArray(hardcodedText.excludePatterns)
+  ) {
+    throw new GlossConfigError(
+      "INVALID_CONFIG",
+      "`hardcodedText.excludePatterns` must be a string array when provided.",
+    );
+  }
+
+  const excludePatterns = Array.isArray(hardcodedText.excludePatterns)
+    ? hardcodedText.excludePatterns
+        .filter((entry): entry is string => typeof entry === "string")
+        .map((entry) => entry.trim())
+        .filter((entry) => entry.length > 0)
+    : [];
+
+  for (const pattern of excludePatterns) {
+    try {
+      void new RegExp(pattern);
+    } catch {
+      throw new GlossConfigError(
+        "INVALID_CONFIG",
+        `Invalid regex in hardcodedText.excludePatterns: ${pattern}`,
+      );
+    }
+  }
+
+  return {
+    enabled,
+    minLength,
+    excludePatterns,
+  };
+};
+
 const CONFIG_FILE_NAMES = [
   "gloss.config.ts",
   "gloss.config.mts",
@@ -83,10 +184,17 @@ const DIRECTORY_NAME_SCORES = new Map<string, number>([
   ["messages", 25],
 ]);
 
-type LocaleDirectoryCandidate = {
+type LocaleDirectoryCandidateEntry = {
   directoryPath: string;
   locales: string[];
   depth: number;
+};
+
+export type LocaleDirectoryCandidate = {
+  path: string;
+  locales: string[];
+  depth: number;
+  score: number;
 };
 
 const normalizePath = (filePath: string) =>
@@ -132,10 +240,10 @@ const discoverLocales = async (cwd: string, localesPath: string) => {
   }
 };
 
-const discoverLocaleDirectoryCandidates = async (
+const discoverLocaleDirectoryCandidatesInternal = async (
   cwd: string,
-): Promise<LocaleDirectoryCandidate[]> => {
-  const candidates: LocaleDirectoryCandidate[] = [];
+): Promise<LocaleDirectoryCandidateEntry[]> => {
+  const candidates: LocaleDirectoryCandidateEntry[] = [];
 
   const visit = async (directory: string) => {
     const entries = await fs.readdir(directory, { withFileTypes: true });
@@ -182,8 +290,8 @@ const discoverLocaleDirectoryCandidates = async (
   return candidates;
 };
 
-const selectLocaleDirectoryCandidate = (
-  candidates: LocaleDirectoryCandidate[],
+const scoreLocaleDirectoryCandidates = (
+  candidates: LocaleDirectoryCandidateEntry[],
   preferredLocales: string[],
 ) => {
   const scored = candidates.map((candidate) => {
@@ -222,7 +330,14 @@ const selectLocaleDirectoryCandidate = (
     return left.candidate.directoryPath.localeCompare(right.candidate.directoryPath);
   });
 
-  return scored[0]?.candidate;
+  return scored;
+};
+
+const selectLocaleDirectoryCandidate = (
+  candidates: LocaleDirectoryCandidateEntry[],
+  preferredLocales: string[],
+) => {
+  return scoreLocaleDirectoryCandidates(candidates, preferredLocales)[0]?.candidate;
 };
 
 const resolveDiscoveredPath = (cwd: string, directoryPath: string) => {
@@ -259,6 +374,21 @@ const normalizeLoadedConfig = (value: unknown): Partial<GlossConfig> | undefined
 
   return value as Partial<GlossConfig> | undefined;
 };
+
+export async function discoverLocaleDirectoryCandidates(
+  cwdInput?: string,
+): Promise<LocaleDirectoryCandidate[]> {
+  const cwd = cwdInput ?? process.env.INIT_CWD ?? process.cwd();
+  const candidates = await discoverLocaleDirectoryCandidatesInternal(cwd);
+  const scored = scoreLocaleDirectoryCandidates(candidates, []);
+
+  return scored.map(({ candidate, score }) => ({
+    path: resolveDiscoveredPath(cwd, candidate.directoryPath),
+    locales: candidate.locales,
+    depth: candidate.depth,
+    score,
+  }));
+}
 
 export async function loadGlossConfig(): Promise<GlossConfig> {
   const cwd = process.env.INIT_CWD || process.cwd();
@@ -313,7 +443,7 @@ export async function loadGlossConfig(): Promise<GlossConfig> {
     const discoveredDirectoryCandidate = configuredPath
       ? null
       : selectLocaleDirectoryCandidate(
-          await discoverLocaleDirectoryCandidates(cwd),
+          await discoverLocaleDirectoryCandidatesInternal(cwd),
           configuredLocales,
         );
     const translationsPath = configuredPath
@@ -370,7 +500,9 @@ export async function loadGlossConfig(): Promise<GlossConfig> {
       defaultLocale,
       path: translationsPath,
       format: "json" as const,
+      strictPlaceholders: normalizeStrictPlaceholders(cfg.strictPlaceholders),
       scan: normalizeScanConfig(cfg.scan),
+      hardcodedText: normalizeHardcodedTextConfig(cfg.hardcodedText),
     };
   } catch (e) {
     if (e instanceof GlossConfigError) {

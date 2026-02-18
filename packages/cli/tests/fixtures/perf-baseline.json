@@ -1,0 +1,13 @@
+{
+  "schemaVersion": 1,
+  "fixture": {
+    "keys": 1000,
+    "locales": 4,
+    "namespaces": 3
+  },
+  "baselineMs": {
+    "coldCheck": 4000,
+    "warmCheck": 2800
+  },
+  "allowedRegressionRatio": 1.2
+}

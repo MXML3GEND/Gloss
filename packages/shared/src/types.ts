@@ -9,7 +9,13 @@ export type GlossConfig = {
   defaultLocale: string;
   path: string;
   format?: "json";
+  strictPlaceholders?: boolean;
   scan?: ScanConfig;
+  hardcodedText?: {
+    enabled?: boolean;
+    minLength?: number;
+    excludePatterns?: string[];
+  };
 };
 
 export type TranslationTree = Record<string, any>;

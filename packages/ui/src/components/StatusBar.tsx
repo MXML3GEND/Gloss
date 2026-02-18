@@ -1,5 +1,9 @@
 import { useState } from "react";
-import type { HardcodedTextIssue, TranslateFn } from "../types/translations";
+import type {
+  HardcodedTextIssue,
+  IssueBaselineReport,
+  TranslateFn,
+} from "../types/translations";
 
 type StatusBarProps = {
   t: TranslateFn;
@@ -10,8 +14,11 @@ type StatusBarProps = {
   hardcodedTextIssues?: HardcodedTextIssue[];
   staleData: boolean;
   hasUnsavedChanges: boolean;
+  changedKeyCount?: number;
+  issueBaseline?: IssueBaselineReport | null;
   lastSavedAt: Date | null;
   onRefresh: () => void | Promise<void>;
+  onReviewChanges?: () => void;
 };
 
 export default function StatusBar({
@@ -23,14 +30,35 @@ export default function StatusBar({
   hardcodedTextIssues = [],
   staleData,
   hasUnsavedChanges,
+  changedKeyCount = 0,
+  issueBaseline = null,
   lastSavedAt,
   onRefresh,
+  onReviewChanges,
 }: StatusBarProps) {
   const [showHardcodedLocations, setShowHardcodedLocations] = useState(false);
   const errorMessage = loadingError ?? saveError;
   const hasHardcodedSignal =
     hardcodedTextCount > 0 || hardcodedTextPreview.length > 0;
   const showLocations = hasHardcodedSignal && showHardcodedLocations;
+  const baselineDeltas = issueBaseline?.delta;
+  const baselineAdded = baselineDeltas
+    ? Math.max(0, baselineDeltas.missingTranslations) +
+      Math.max(0, baselineDeltas.orphanKeys) +
+      Math.max(0, baselineDeltas.invalidKeys) +
+      Math.max(0, baselineDeltas.placeholderMismatches) +
+      Math.max(0, baselineDeltas.hardcodedTexts)
+    : 0;
+  const baselineResolved = baselineDeltas
+    ? Math.max(0, -baselineDeltas.missingTranslations) +
+      Math.max(0, -baselineDeltas.orphanKeys) +
+      Math.max(0, -baselineDeltas.invalidKeys) +
+      Math.max(0, -baselineDeltas.placeholderMismatches) +
+      Math.max(0, -baselineDeltas.hardcodedTexts)
+    : 0;
+  const showBaselineDelta =
+    Boolean(issueBaseline?.hasPrevious) &&
+    (baselineAdded > 0 || baselineResolved > 0);
 
   const savedAtLabel =
     lastSavedAt ?
@@ -39,6 +67,7 @@ export default function StatusBar({
           hour: "2-digit",
           minute: "2-digit",
           second: "2-digit",
+          hour12: false,
         }),
       })
     : null;
@@ -48,7 +77,9 @@ export default function StatusBar({
     !staleData &&
     !hasUnsavedChanges &&
     !savedAtLabel &&
-    !hasHardcodedSignal
+    !hasHardcodedSignal &&
+    !showBaselineDelta &&
+    changedKeyCount === 0
   ) {
     return null;
   }
@@ -100,8 +131,31 @@ export default function StatusBar({
             </span>
           ) : null}
         </button>
+        {changedKeyCount > 0 ? (
+          <>
+            <span className="status-chip status-chip--muted">
+              {t("changedKeysStatus", { count: changedKeyCount })}
+            </span>
+            {onReviewChanges ? (
+              <button
+                type="button"
+                className="status-chip status-chip--info"
+                onClick={onReviewChanges}
+              >
+                {t("reviewChanges", { count: changedKeyCount })}
+              </button>
+            ) : null}
+          </>
+        ) : null}
+        {showBaselineDelta ? (
+          <span className="status-chip status-chip--muted">
+            {t("baselineDeltaStatus", {
+              added: baselineAdded,
+              resolved: baselineResolved,
+            })}
+          </span>
+        ) : null}
         {hasUnsavedChanges && <span className="status-chip">{t("unsavedChanges")}</span>}
-        {savedAtLabel && <span className="status-chip status-chip--muted">{savedAtLabel}</span>}
       </div>
       {showLocations ? (
         <div className="status-bar__details">

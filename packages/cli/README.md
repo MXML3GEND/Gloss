@@ -40,6 +40,7 @@ export default {
     exclude: ["**/*.test.tsx"],
     mode: "regex", // or "ast" for strict parsing
   },
+  strictPlaceholders: true, // default true; set false to treat placeholder mismatches as warnings
 };
 ```
 
@@ -54,6 +55,7 @@ module.exports = {
   scan: {
     mode: "ast",
   },
+  strictPlaceholders: false,
 };
 ```
 
@@ -63,8 +65,13 @@ module.exports = {
 gloss --help
 gloss --version
 gloss --no-open
+gloss --no-cache
 gloss --port 5179
 gloss open key auth.login.title
+gloss check --no-cache
+gloss cache status
+gloss cache clear
+npm run test:perf
 ```
 
 ## CI Guardrails
@@ -85,6 +92,21 @@ gloss check --format both
 `gloss check` exits with code `1` when issues are found, so it is CI-friendly.
 
 The local UI also consumes this data through `/api/check` and shows a hardcoded-text status chip.
+
+## Performance Regression Gate
+
+Gloss ships with a deterministic 1000-key fixture regression test for scanner performance.
+
+```bash
+npm run test:perf
+```
+
+Optional environment overrides:
+
+```bash
+GLOSS_PERF_COLD_MAX_MS=5000
+GLOSS_PERF_WARM_MAX_MS=3500
+```
 
 ## Typed Key Generation
 

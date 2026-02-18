@@ -14,3 +14,5 @@ playwright-report/
 .DS_Store
 *.log
 .npm-cache/
+.gloss/
+LOCAL_STRATEGY.md

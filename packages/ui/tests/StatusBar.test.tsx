@@ -16,6 +16,15 @@ const t: TranslateFn = (key, variables) => {
   if (key === "unsavedChanges") {
     return "You have unsaved changes.";
   }
+  if (key === "baselineDeltaStatus") {
+    return `Since baseline +${variables?.added ?? 0} / -${variables?.resolved ?? 0}`;
+  }
+  if (key === "changedKeysStatus") {
+    return `Changed keys: ${variables?.count ?? 0}`;
+  }
+  if (key === "reviewChanges") {
+    return `Review changes (${variables?.count ?? 0})`;
+  }
   if (key === "hardcodedTextStatus") {
     return `Hardcoded text: ${variables?.count ?? 0}`;
   }
@@ -120,5 +129,59 @@ describe("StatusBar", () => {
     fireEvent.click(screen.getByRole("button", { name: /Hardcoded text: 2/ }));
     expect(screen.getByText("Hardcoded locations")).toBeTruthy();
     expect(screen.getByText("test")).toBeTruthy();
+  });
+
+  it("shows changed key summary and allows review action", () => {
+    const onReviewChanges = vi.fn();
+    render(
+      <StatusBar
+        t={t}
+        loadingError={null}
+        saveError={null}
+        staleData={false}
+        hasUnsavedChanges={false}
+        changedKeyCount={3}
+        lastSavedAt={null}
+        onRefresh={() => undefined}
+        onReviewChanges={onReviewChanges}
+      />,
+    );
+
+    expect(screen.getByText("Changed keys: 3")).toBeTruthy();
+    fireEvent.click(screen.getByRole("button", { name: "Review changes (3)" }));
+    expect(onReviewChanges).toHaveBeenCalledTimes(1);
+  });
+
+  it("shows baseline delta chip when baseline report has changes", () => {
+    render(
+      <StatusBar
+        t={t}
+        loadingError={null}
+        saveError={null}
+        staleData={false}
+        hasUnsavedChanges={false}
+        changedKeyCount={0}
+        issueBaseline={{
+          hasPrevious: true,
+          baselinePath: ".gloss/baseline.json",
+          previousUpdatedAt: "2026-02-18T10:00:00.000Z",
+          currentUpdatedAt: "2026-02-18T10:10:00.000Z",
+          delta: {
+            missingTranslations: 2,
+            orphanKeys: -1,
+            invalidKeys: 0,
+            placeholderMismatches: 0,
+            hardcodedTexts: 1,
+            errorIssues: 2,
+            warningIssues: 0,
+            totalIssues: 2,
+          },
+        }}
+        lastSavedAt={null}
+        onRefresh={() => undefined}
+      />,
+    );
+
+    expect(screen.getByText("Since baseline +3 / -1")).toBeTruthy();
   });
 });

@@ -4,17 +4,22 @@ import RenameInlineForm from "./RenameInlineForm";
 import type {
   FlatTranslationsByLocale,
   GitKeyDiff,
+  NamespaceTableGroup,
+  WorkspaceMode,
   TranslateFn,
   UsageMap,
 } from "../types/translations";
 import { isMissingValue } from "../types/translations";
 
 type TranslationTableModel = {
+  workspaceMode: WorkspaceMode;
+  groupByNamespace: boolean;
   locales: string[];
   visibleKeys: string[];
+  namespaceGroups: NamespaceTableGroup[];
+  collapsedNamespaceGroupSet: Set<string>;
   data: FlatTranslationsByLocale;
   usage: UsageMap;
-  gitBaseRef: string;
   changedSinceBaseKeySet: Set<string>;
   gitDiffByKey: Record<string, GitKeyDiff>;
   selectedFileKeySet: Set<string> | null;
@@ -30,7 +35,8 @@ type TranslationTableModel = {
 type TranslationTableActions = {
   isCellDirty: (locale: string, key: string) => boolean;
   textareaRows: (value: string) => number;
-  onToggleExpanded: (key: string) => void;
+  onOpenUsageDetails: (key: string) => void;
+  onToggleNamespaceGroup: (groupId: string) => void;
   onCellFocus: (row: number, col: number) => void;
   onCellBlur: () => void;
   onCellKeyDown: (
@@ -62,12 +68,20 @@ export default function TranslationTable({
   model,
   actions,
 }: TranslationTableProps) {
+  const autoResizeTextarea = (element: HTMLTextAreaElement) => {
+    element.style.height = "0px";
+    element.style.height = `${element.scrollHeight}px`;
+  };
+
   const {
+    workspaceMode,
+    groupByNamespace,
     locales,
     visibleKeys,
+    namespaceGroups,
+    collapsedNamespaceGroupSet,
     data,
     usage,
-    gitBaseRef,
     changedSinceBaseKeySet,
     gitDiffByKey,
     selectedFileKeySet,
@@ -83,10 +97,19 @@ export default function TranslationTable({
   const [scrollTop, setScrollTop] = useState(0);
   const [viewportHeight, setViewportHeight] = useState(640);
 
-  const virtualizationEnabled = visibleKeys.length > 1000;
+  const virtualizationEnabled = !groupByNamespace && visibleKeys.length > 1000;
+  const isMaintenanceMode = workspaceMode === "maintenance";
   const rowEstimate = 96;
   const overscan = 16;
-  const totalColumns = locales.length + 4;
+  const totalColumns = locales.length + (isMaintenanceMode ? 4 : 1);
+  const visibleKeySet = useMemo(() => new Set(visibleKeys), [visibleKeys]);
+  const keyRowIndexByKey = useMemo(() => {
+    const next = new Map<string, number>();
+    visibleKeys.forEach((key, index) => {
+      next.set(key, index);
+    });
+    return next;
+  }, [visibleKeys]);
 
   useEffect(() => {
     const container = containerRef.current;
@@ -128,7 +151,9 @@ export default function TranslationTable({
     const row = containerRef.current.querySelector(
       `tr[data-key="${escapedKey}"]`,
     ) as HTMLTableRowElement | null;
-    row?.scrollIntoView({ block: "center", behavior: "smooth" });
+    if (row && typeof row.scrollIntoView === "function") {
+      row.scrollIntoView({ block: "center", behavior: "smooth" });
+    }
   }, [highlightedKey, visibleKeys]);
 
   const { startIndex, topSpacerHeight, bottomSpacerHeight, renderedKeys } = useMemo(() => {
@@ -175,7 +200,6 @@ export default function TranslationTable({
     const rowDirty = locales.some((locale) => actions.isCellDirty(locale, key));
     const usageEntry = usage[key];
     const usageCount = usageEntry?.count ?? 0;
-    const usageFiles = usageEntry?.files ?? [];
     const isUnused = usageCount === 0;
     const gitDiff = gitDiffByKey[key];
     const hasGitDiff = Boolean(gitDiff);
@@ -192,9 +216,10 @@ export default function TranslationTable({
       .join(" ");
     const keyCellClass = [
       "key-col",
-      isUnused ? "key-col--unused" : "",
-      isFromSelectedFile ? "key-col--file-selected" : "",
-      hasPlaceholderMismatch ? "key-col--placeholder-warning" : "",
+      isMaintenanceMode && isUnused ? "key-col--unused" : "",
+      isMaintenanceMode && isFromSelectedFile ? "key-col--file-selected" : "",
+      isMaintenanceMode && hasPlaceholderMismatch ? "key-col--placeholder-warning" : "",
+      !isMaintenanceMode ? "key-col--translate" : "",
     ]
       .filter(Boolean)
       .join(" ");
@@ -203,43 +228,53 @@ export default function TranslationTable({
       <Fragment key={key}>
         <tr className={rowClassName} data-key={key}>
           <td className={keyCellClass}>
-            {key}
-            {rowDirty ? " *" : ""}
+            <span className="key-col__label">{key}</span>
+            {isMaintenanceMode && rowDirty ? (
+              <span className="key-col__dirty-dot" aria-label={t("changedSuffix")}>
+                •
+              </span>
+            ) : null}
           </td>
-          <td
-            className={
-              isUnused ? "usage-col usage-cell usage-cell--unused" : "usage-col usage-cell"
-            }
-          >
-            {isUnused && !hasGitDiff ? (
-              <span className="usage-tag">{t("usageUnused")}</span>
-            ) : (
-              <button
-                type="button"
-                className="usage-toggle"
-                onClick={() => actions.onToggleExpanded(key)}
-                aria-expanded={isExpanded}
-              >
-                {usageCount > 0 ? usageCount : "Δ"}
-              </button>
-            )}
-          </td>
-          <td className="status-col">
-            <div>{t("translated", { count: translatedCount, total: locales.length })}</div>
-            {rowDirty ? <div>{t("changedSuffix")}</div> : null}
-            <div className="status-col__tags">
-              {hasChangedSinceBase ? (
-                <span className="status-inline-tag status-inline-tag--info">
-                  {t("gitChangedTag")}
-                </span>
-              ) : null}
-              {hasPlaceholderMismatch ? (
-                <span className="status-inline-tag status-inline-tag--warning">
-                  {t("placeholderMismatchTag")}
-                </span>
-              ) : null}
-            </div>
-          </td>
+          {isMaintenanceMode ? (
+            <td
+              className={
+                isUnused ? "usage-col usage-cell usage-cell--unused" : "usage-col usage-cell"
+              }
+            >
+              {isUnused && !hasGitDiff ? (
+                <span className="usage-tag">{t("usageUnused")}</span>
+              ) : (
+                <button
+                  type="button"
+                  className="usage-toggle"
+                  onClick={() => actions.onOpenUsageDetails(key)}
+                  aria-expanded={isExpanded}
+                >
+                  {usageCount > 0 ? usageCount : "Δ"}
+                </button>
+              )}
+            </td>
+          ) : null}
+          {isMaintenanceMode ? (
+            <td className="status-col">
+              <div className="status-col__summary">
+                <span>{t("translated", { count: translatedCount, total: locales.length })}</span>
+                {rowDirty ? <span className="status-col__changed">{t("changedSuffix")}</span> : null}
+              </div>
+              <div className="status-col__tags">
+                {hasChangedSinceBase ? (
+                  <span className="status-inline-tag status-inline-tag--info">
+                    {t("gitChangedTag")}
+                  </span>
+                ) : null}
+                {hasPlaceholderMismatch ? (
+                  <span className="status-inline-tag status-inline-tag--warning">
+                    {t("placeholderMismatchTag")}
+                  </span>
+                ) : null}
+              </div>
+            </td>
+          ) : null}
           {locales.map((locale, colIndex) => {
             const value = data[locale]?.[key] ?? "";
             const missing = isMissingValue(value);
@@ -260,10 +295,14 @@ export default function TranslationTable({
                   aria-label={`${locale}:${key}`}
                   ref={(element) => {
                     actions.registerCellRef(key, locale, element);
+                    if (element) {
+                      autoResizeTextarea(element);
+                    }
                   }}
                   rows={actions.textareaRows(value)}
                   className={dirty ? "value-input value-input--dirty" : "value-input"}
                   value={value}
+                  onInput={(event) => autoResizeTextarea(event.currentTarget)}
                   onFocus={() => actions.onCellFocus(rowIndex, colIndex)}
                   onBlur={actions.onCellBlur}
                   onKeyDown={(event) => actions.onCellKeyDown(event, rowIndex, colIndex)}
@@ -272,82 +311,90 @@ export default function TranslationTable({
               </td>
             );
           })}
-          <td className="actions-col">
-            {renamingKey === key ? (
-              <RenameInlineForm
-                t={t}
-                keyName={key}
-                value={renameValue}
-                error={renameError}
-                onChange={actions.onRenameValueChange}
-                onApply={() => actions.onApplyRename(key)}
-                onCancel={actions.onCancelRename}
-              />
-            ) : (
-              <div className="row-actions">
-                <button
-                  type="button"
-                  className="btn btn--ghost btn--small"
-                  onClick={() => actions.onStartRename(key)}
-                >
-                  {t("rename")}
-                </button>
-                <button
-                  type="button"
-                  className="btn btn--danger btn--small"
-                  onClick={() => actions.onDeleteKey(key)}
-                >
-                  {t("delete")}
-                </button>
-              </div>
-            )}
-          </td>
-        </tr>
-        {isExpanded && (
-          <tr className="usage-files-row">
-            <td colSpan={totalColumns}>
-              <div className="usage-files">
-                <strong>{t("usageFilesLabel")}</strong>
-                {usageFiles.length === 0 ? (
-                  <span>{t("noUsageFiles")}</span>
-                ) : (
-                  <ul className="usage-files-list">
-                    {usageFiles.map((file) => (
-                      <li key={`${key}-${file}`}>{file}</li>
-                    ))}
-                  </ul>
-                )}
-                {gitDiff ? (
-                  <div className="key-diff-block">
-                    <strong>{t("gitDiffLabel", { base: gitBaseRef })}</strong>
-                    <ul className="usage-files-list">
-                      {gitDiff.changes.map((change) => {
-                        const kindLabel =
-                          change.kind === "added"
-                            ? t("gitDiffKindAdded")
-                            : change.kind === "removed"
-                              ? t("gitDiffKindRemoved")
-                              : t("gitDiffKindChanged");
-
-                        return (
-                          <li key={`${key}-${change.locale}`}>
-                            <span className="key-diff-line">
-                              {change.locale} ({kindLabel}):{" "}
-                              {JSON.stringify(change.before)} {" -> "}{" "}
-                              {JSON.stringify(change.after)}
-                            </span>
-                          </li>
-                        );
-                      })}
-                    </ul>
-                  </div>
-                ) : null}
-              </div>
+          {isMaintenanceMode ? (
+            <td className="actions-col">
+              {renamingKey === key ? (
+                <RenameInlineForm
+                  t={t}
+                  keyName={key}
+                  value={renameValue}
+                  error={renameError}
+                  onChange={actions.onRenameValueChange}
+                  onApply={() => actions.onApplyRename(key)}
+                  onCancel={actions.onCancelRename}
+                />
+              ) : (
+                <div className="row-actions">
+                  <button
+                    type="button"
+                    className="btn btn--ghost btn--small row-action-icon-btn"
+                    onClick={() => actions.onStartRename(key)}
+                    aria-label={t("rename")}
+                    title={t("rename")}
+                  >
+                    <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+                      <path
+                        d="M3 17.25V21h3.75L17.8 9.94l-3.75-3.75L3 17.25zm2.92 2.33H5v-.92l8.88-8.88.92.92-8.88 8.88zM20.71 7.04a1 1 0 0 0 0-1.41L18.37 3.3a1 1 0 0 0-1.41 0l-1.67 1.67 3.75 3.75 1.67-1.68z"
+                        fill="currentColor"
+                      />
+                    </svg>
+                  </button>
+                  <button
+                    type="button"
+                    className="btn btn--danger btn--small row-action-icon-btn"
+                    onClick={() => actions.onDeleteKey(key)}
+                    aria-label={t("delete")}
+                    title={t("delete")}
+                  >
+                    <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+                      <path
+                        d="M6 7h12v2H6V7zm2 3h8l-1 9H9L8 10zm3-6h2l1 1h4v2H6V5h4l1-1z"
+                        fill="currentColor"
+                      />
+                    </svg>
+                  </button>
+                </div>
+              )}
             </td>
-          </tr>
-        )}
+          ) : null}
+        </tr>
       </Fragment>
     );
+  };
+
+  const renderNamespaceGroupRows = () => {
+    return namespaceGroups.map((group) => {
+      const isCollapsed = collapsedNamespaceGroupSet.has(group.id);
+      const visibleGroupKeys = isCollapsed
+        ? []
+        : group.keys.filter((key) => visibleKeySet.has(key));
+
+      return (
+        <Fragment key={`group:${group.id}`}>
+          <tr className="namespace-group-row">
+            <td colSpan={totalColumns}>
+              <button
+                type="button"
+                className="namespace-group-toggle"
+                onClick={() => actions.onToggleNamespaceGroup(group.id)}
+                aria-expanded={!isCollapsed}
+              >
+                <span className="namespace-group-toggle__caret">
+                  {isCollapsed ? "▸" : "▾"}
+                </span>
+                <span className="namespace-group-toggle__label">{group.label}</span>
+                <span className="namespace-group-toggle__count">
+                  {t("namespaceGroupCount", { count: group.keys.length })}
+                </span>
+              </button>
+            </td>
+          </tr>
+          {visibleGroupKeys.map((key) =>
+            renderRow(key, keyRowIndexByKey.get(key) ?? 0),
+          )}
+        </Fragment>
+      );
+    });
   };
 
   return (
@@ -371,14 +418,14 @@ export default function TranslationTable({
         <thead>
           <tr>
             <th className="key-col">{t("keyColumn")}</th>
-            <th>{t("usageColumn")}</th>
-            <th>{t("statusColumn")}</th>
+            {isMaintenanceMode ? <th className="usage-col">{t("usageColumn")}</th> : null}
+            {isMaintenanceMode ? <th className="status-col">{t("statusColumn")}</th> : null}
             {locales.map((locale) => (
               <th key={locale} className="locale-col">
                 {locale}
               </th>
             ))}
-            <th>{t("actionsColumn")}</th>
+            {isMaintenanceMode ? <th className="actions-col">{t("actionsColumn")}</th> : null}
           </tr>
         </thead>
         <tbody>
@@ -387,9 +434,14 @@ export default function TranslationTable({
               <td colSpan={totalColumns} style={{ height: `${topSpacerHeight}px` }} />
             </tr>
           ) : null}
-          {renderedKeys.map((key, renderedIndex) =>
-            renderRow(key, startIndex + renderedIndex),
-          )}
+          {groupByNamespace
+            ? renderNamespaceGroupRows()
+            : renderedKeys.map((key, renderedIndex) =>
+                renderRow(
+                  key,
+                  keyRowIndexByKey.get(key) ?? (startIndex + renderedIndex),
+                ),
+              )}
           {virtualizationEnabled && bottomSpacerHeight > 0 ? (
             <tr className="virtual-spacer">
               <td colSpan={totalColumns} style={{ height: `${bottomSpacerHeight}px` }} />

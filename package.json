@@ -9,6 +9,7 @@
     "build": "npm -w @gloss/shared run build && npm -w @gloss/ui run build && npm -w @mxml3gend/gloss run build",
     "lint": "npm run lint --workspaces --if-present",
     "test": "npm run test --workspaces --if-present",
+    "test:perf": "npm -w @mxml3gend/gloss run test:perf",
     "test:e2e": "npx playwright test",
     "test:e2e:headed": "npx playwright test --headed",
     "test:e2e:install": "npx playwright install chromium",
